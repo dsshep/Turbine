@@ -6,15 +6,14 @@ open Bogus
 open Amazon.DynamoDBv2
 open Amazon.DynamoDBv2.Model
 
-[<CLIMutable>]
-type CliMutableCustomer =
-    { Id: Guid
-      FullName: string
-      PhoneNumber: string
-      Street: string
-      City: string
-      PostCode: string
-      Country: string }
+type AutoPropCustomer() =
+    member val Id: Guid = Unchecked.defaultof<_> with get, set
+    member val FullName: string = Unchecked.defaultof<_> with get, set
+    member val PhoneNumber: string = Unchecked.defaultof<_> with get, set
+    member val Street: string = Unchecked.defaultof<_> with get, set
+    member val City: string = Unchecked.defaultof<_> with get, set
+    member val PostCode: string = Unchecked.defaultof<_> with get, set
+    member val Country: string = Unchecked.defaultof<_> with get, set
 
 type Customer =
     { Id: Guid
@@ -36,23 +35,30 @@ let private generateCustomer () =
       PostCode = faker.Address.ZipCode()
       Country = faker.Address.Country() }
 
-let seed (tableName: string) (client: AmazonDynamoDBClient) =
+let seed
+    (tableName: string)
+    (pk: Customer -> string)
+    (sk: Customer -> string)
+    (additionalAttributes: Customer -> KeyValuePair<string, AttributeValue> list)
+    (client: AmazonDynamoDBClient)
+    =
     let writeBatch (batch: Customer list) =
         task {
             let createWriteRequest item =
                 let serialized = System.Text.Json.JsonSerializer.Serialize item
 
                 let itemAttributes =
-                    [ KeyValuePair<string, AttributeValue>("pk", AttributeValue(string item.Id))
-                      KeyValuePair<string, AttributeValue>("sk", AttributeValue(item.FullName))
+                    [ KeyValuePair<string, AttributeValue>("pk", AttributeValue(pk item))
+                      KeyValuePair<string, AttributeValue>("sk", AttributeValue(sk item))
 
-                      KeyValuePair<string, AttributeValue>("PhoneNumber", AttributeValue(item.PhoneNumber))
-                      KeyValuePair<string, AttributeValue>("Street", AttributeValue(item.Street))
-                      KeyValuePair<string, AttributeValue>("City", AttributeValue(item.City))
-                      KeyValuePair<string, AttributeValue>("PostCode", AttributeValue(item.PostCode))
-                      KeyValuePair<string, AttributeValue>("Country", AttributeValue(item.Country))
+                      KeyValuePair<string, AttributeValue>("phoneNumber", AttributeValue(item.PhoneNumber))
+                      KeyValuePair<string, AttributeValue>("street", AttributeValue(item.Street))
+                      KeyValuePair<string, AttributeValue>("city", AttributeValue(item.City))
+                      KeyValuePair<string, AttributeValue>("postCode", AttributeValue(item.PostCode))
+                      KeyValuePair<string, AttributeValue>("country", AttributeValue(item.Country))
 
                       KeyValuePair<string, AttributeValue>("json", AttributeValue(serialized)) ]
+                    @ (additionalAttributes item)
 
                 WriteRequest(PutRequest(Dictionary<string, AttributeValue>(itemAttributes)))
 

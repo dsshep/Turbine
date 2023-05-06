@@ -1,5 +1,6 @@
 ﻿namespace Turbine
 
+open System
 open System.Collections.Generic
 open Amazon.DynamoDBv2
 open Amazon.DynamoDBv2.Model
@@ -18,26 +19,54 @@ module internal Query =
 
         new(query: PreparedQuery, client: AmazonDynamoDBClient) = { query = query; client = client }
 
+        member this.DoQuery(itemLimit: Nullable<int>) =
+            task {
+                let { Pk = pk; Sk = sk; Schema = schema } = this.query
+                let sortKeyExpr = sk.KeyExpr.Replace("<SORT_KEY>", schema.Sk)
+
+                let queryRequest = QueryRequest(TableName = schema.TableName)
+                queryRequest.KeyConditionExpression <- $"{this.query.Schema.Pk} = :pkVal AND {sortKeyExpr}"
+
+                let expressionAttributes =
+                    match sk.AttributeValue2 with
+                    | Some a ->
+                        [ KeyValuePair<_, _>(":pkVal", AttributeValue(pk))
+                          KeyValuePair<_, _>(":skVal1", sk.AttributeValue1)
+                          KeyValuePair<_, _>(":skVal2", a) ]
+                    | None ->
+                        [ KeyValuePair<_, _>(":pkVal", AttributeValue(pk))
+                          KeyValuePair<_, _>(":skVal", sk.AttributeValue1) ]
+
+                queryRequest.ExpressionAttributeValues <- Dictionary<string, AttributeValue>(expressionAttributes)
+
+                if itemLimit.HasValue then
+                    queryRequest.Limit <- itemLimit.Value
+
+                let! result = this.client.QueryAsync(queryRequest)
+
+                return result.Items
+            }
+
         interface IQuery<'T> with
             member this.QueryAsync() =
                 task {
-                    let { Pk = pk; Sk = sk; Schema = schema } = this.query
-                    let sortKeyExpr = sk.KeyExpr.Replace("<SORT_KEY>", schema.Sk)
+                    let! items = this.DoQuery(1)
 
-                    let queryRequest = QueryRequest(TableName = schema.TableName)
-                    queryRequest.KeyConditionExpression <- $"{this.query.Schema.Pk} = :pkVal AND {sortKeyExpr}"
+                    return
+                        if items.Count = 1 then
+                            EntityBuilder.hydrateEntity<'T> (this.query.Schema, items[0])
+                        else
+                            Unchecked.defaultof<_>
+                }
 
-                    let expressionAttributes =
-                        [ KeyValuePair<_, _>(":pkVal", AttributeValue(pk))
-                          KeyValuePair<_, _>(":skVal", sk.AttributeValue) ]
+            member this.ToListAsync() =
+                task {
+                    let! items = this.DoQuery(Nullable())
 
-                    queryRequest.ExpressionAttributeValues <- Dictionary<string, AttributeValue>(expressionAttributes)
-
-                    let! result = this.client.QueryAsync(queryRequest)
-
-                    let items = result.Items |> Seq.head
-
-                    return EntityBuilder.hydrateEntity<'T> (this.query.Schema, items)
+                    return
+                        items
+                        |> Seq.map (fun item -> EntityBuilder.hydrateEntity<'T> (this.query.Schema, item))
+                        |> ResizeArray
                 }
 
     [<Struct>]
