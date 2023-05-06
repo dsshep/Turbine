@@ -19,54 +19,62 @@ module internal Query =
 
         new(query: PreparedQuery, client: AmazonDynamoDBClient) = { query = query; client = client }
 
-        member this.DoQuery(itemLimit: Nullable<int>) =
-            task {
-                let { Pk = pk; Sk = sk; Schema = schema } = this.query
-                let sortKeyExpr = sk.KeyExpr.Replace("<SORT_KEY>", schema.Sk)
+        interface IPageableQuery<'T> with
+            member this.DoQuery(itemLimit: Nullable<int>, ?lastEvalKey: Dictionary<string, AttributeValue>) =
+                task {
+                    let { Pk = pk; Sk = sk; Schema = schema } = this.query
+                    let sortKeyExpr = sk.KeyExpr.Replace("<SORT_KEY>", schema.Sk)
 
-                let queryRequest = QueryRequest(TableName = schema.TableName)
-                queryRequest.KeyConditionExpression <- $"{this.query.Schema.Pk} = :pkVal AND {sortKeyExpr}"
+                    let queryRequest = QueryRequest(TableName = schema.TableName)
+                    queryRequest.KeyConditionExpression <- $"{this.query.Schema.Pk} = :pkVal AND {sortKeyExpr}"
 
-                let expressionAttributes =
-                    match sk.AttributeValue2 with
-                    | Some a ->
-                        [ KeyValuePair<_, _>(":pkVal", AttributeValue(pk))
-                          KeyValuePair<_, _>(":skVal1", sk.AttributeValue1)
-                          KeyValuePair<_, _>(":skVal2", a) ]
-                    | None ->
-                        [ KeyValuePair<_, _>(":pkVal", AttributeValue(pk))
-                          KeyValuePair<_, _>(":skVal", sk.AttributeValue1) ]
+                    let expressionAttributes =
+                        match sk.AttributeValue2 with
+                        | Some a ->
+                            [ KeyValuePair<_, _>(":pkVal", AttributeValue(pk))
+                              KeyValuePair<_, _>(":skVal1", sk.AttributeValue1)
+                              KeyValuePair<_, _>(":skVal2", a) ]
+                        | None ->
+                            [ KeyValuePair<_, _>(":pkVal", AttributeValue(pk))
+                              KeyValuePair<_, _>(":skVal", sk.AttributeValue1) ]
 
-                queryRequest.ExpressionAttributeValues <- Dictionary<string, AttributeValue>(expressionAttributes)
+                    queryRequest.ExpressionAttributeValues <- Dictionary<string, AttributeValue>(expressionAttributes)
 
-                if itemLimit.HasValue then
-                    queryRequest.Limit <- itemLimit.Value
+                    if itemLimit.HasValue then
+                        queryRequest.Limit <- itemLimit.Value
 
-                let! result = this.client.QueryAsync(queryRequest)
+                    queryRequest.ExclusiveStartKey <- defaultArg lastEvalKey null
 
-                return result.Items
-            }
+                    let! result = this.client.QueryAsync(queryRequest)
+
+                    return result
+                }
 
         interface IQuery<'T> with
             member this.QueryAsync() =
                 task {
-                    let! items = this.DoQuery(1)
+                    let! result = (this :> IPageableQuery<_>).DoQuery(1)
 
                     return
-                        if items.Count = 1 then
-                            EntityBuilder.hydrateEntity<'T> (this.query.Schema, items[0])
+                        if result.Items.Count = 1 then
+                            EntityBuilder.hydrateEntity<'T> (this.query.Schema, result.Items[0])
                         else
                             Unchecked.defaultof<_>
                 }
 
             member this.ToListAsync() =
-                task {
-                    let! items = this.DoQuery(Nullable())
+                (this :> IQuery<'T>).ToListAsync(Nullable())
 
-                    return
-                        items
+            member this.ToListAsync(limit: Nullable<int>) =
+
+                task {
+                    let! result = (this :> IPageableQuery<_>).DoQuery(limit)
+
+                    let entities =
+                        result.Items
                         |> Seq.map (fun item -> EntityBuilder.hydrateEntity<'T> (this.query.Schema, item))
-                        |> ResizeArray
+
+                    return PageList<_>(entities, limit, result, this, this.query.Schema)
                 }
 
     [<Struct>]

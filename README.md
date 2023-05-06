@@ -89,6 +89,7 @@ v0.1 tasks:
 
 Beyond:
 
+- Custom hydration, e.g. compound sort keys
 - Query on GSIs
 - Scans
   - Filter expressions

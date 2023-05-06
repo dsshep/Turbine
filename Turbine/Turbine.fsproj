@@ -4,14 +4,14 @@
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
     </PropertyGroup>
     <ItemGroup>
-        <Compile Include="Exceptions.fs"/>
-        <Compile Include="Reflection.fs"/>
-        <Compile Include="Schema.fs"/>
-        <Compile Include="SortKey.fs"/>
-        <Compile Include="Api.fs"/>
-        <Compile Include="EntityBuilder.fs"/>
-        <Compile Include="Query.fs"/>
-        <Compile Include="Turbine.fs"/>
+        <Compile Include="Exceptions.fs" />
+        <Compile Include="Reflection.fs" />
+        <Compile Include="Schema.fs" />
+        <Compile Include="SortKey.fs" />
+        <Compile Include="EntityBuilder.fs" />
+        <Compile Include="Api.fs" />
+        <Compile Include="Query.fs" />
+        <Compile Include="Turbine.fs" />
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.7.103">

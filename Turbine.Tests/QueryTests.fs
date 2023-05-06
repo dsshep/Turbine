@@ -173,3 +173,38 @@ let ``Can fetch list of entities`` () =
                     Assert.Equal<Customer list>(expectedCustomers, orderedCustomers)
                 })
     }
+
+[<Fact>]
+let ``Can paginate list of entities`` () =
+    task {
+        do!
+            runTest (fun client ->
+                task {
+                    let! customers =
+                        seed
+                            tableName
+                            (fun _ -> "NAME")
+                            (fun c -> $"{c.Country}#{c.Id}")
+                            (fun c -> [ KeyValuePair<string, AttributeValue>("id", AttributeValue(string c.Id)) ])
+                            client
+
+                    let schema =
+                        Schema(tableName).AddEntity<Customer>().SortKey(fun c -> c.FullName).Schema
+
+                    use turbine = new Turbine(client)
+
+                    let! firstPage =
+                        turbine
+                            .Query<Customer>(schema)
+                            .WithPk("NAME")
+                            .WithSk(SortKey.BeginsWith("GB"))
+                            .ToListAsync(10)
+
+                    Assert.True(firstPage.HasNextPage)
+
+                    let! nextPage = firstPage.NextPageAsync()
+
+                    Assert.Equal(nextPage.Count, firstPage.Count)
+                    Assert.True(nextPage.HasNextPage)
+                })
+    }

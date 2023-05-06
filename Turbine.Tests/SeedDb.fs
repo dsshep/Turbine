@@ -33,7 +33,7 @@ let private generateCustomer () =
       Street = faker.Address.StreetAddress()
       City = faker.Address.City()
       PostCode = faker.Address.ZipCode()
-      Country = faker.Address.Country() }
+      Country = "GB" }
 
 let seed
     (tableName: string)
