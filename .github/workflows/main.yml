@@ -26,15 +26,15 @@ jobs:
         run: dotnet build --configuration Release --no-restore
 
       - name: Run tests
-        run: dotnet test --no-build --verbosity normal
+        run: dotnet test ./Turbine.Tests/Turbine.Tests.fsproj --no-build --verbosity normal
 
       - name: Publish NuGet package
         if:  github.ref == 'refs/heads/main' && success()
-        run: dotnet pack --configuration Release --no-build --output out
+        run: dotnet pack ./Turbine/Turbine.csproj --configuration Release --no-build --output out
 
-      - name: Push to NuGet
-        if:  github.ref == 'refs/heads/main' && success()
-        uses: brandedoutcast/publish-nuget@v2
-        with:
-          PROJECT_FILE_PATH: Turbine/Turbine.csproj
-          NUGET_KEY: ${{ secrets.NUGET_API_KEY }}
+      #- name: Push to NuGet
+      #  if:  github.ref == 'refs/heads/main' && success()
+      #  uses: brandedoutcast/publish-nuget@v2
+      #  with:
+      #    PROJECT_FILE_PATH: Turbine/Turbine.csproj
+      #    NUGET_KEY: ${{ secrets.NUGET_API_KEY }}
