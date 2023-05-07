@@ -18,29 +18,23 @@ internal static class EntityBuilder
 
         foreach (var prop in props)
         {
-            var propName = prop.Name;
-            var propType = prop.PropertyType;
+            var matchingAttribute = attributes.KeyValueOrDefault(prop.Name);
 
-            if (attributes.TryGetValue(propName, out var av))
+            if (matchingAttribute is null &&
+                prop.Name.Equals(partitionKeyProp, StringComparison.OrdinalIgnoreCase))
             {
-                var value = Reflection.ToNetType(propType, av);
-                prop.SetValue(instance, value);
+                matchingAttribute = attributes.KeyValueOrDefault(schema.Pk);
             }
-            else
-            {
-                if (string.Equals(propName, partitionKeyProp, StringComparison.OrdinalIgnoreCase))
-                    if (attributes.TryGetValue(schema.Pk, out av))
-                    {
-                        var value = Reflection.ToNetType(propType, av);
-                        prop.SetValue(instance, value);
-                    }
 
-                if (!string.Equals(propName, sortKeyProp, StringComparison.OrdinalIgnoreCase)) continue;
-                {
-                    if (!attributes.TryGetValue(schema.Sk, out av)) continue;
-                    var value = Reflection.ToNetType(propType, av);
-                    prop.SetValue(instance, value);
-                }
+            if (matchingAttribute is null &&
+                prop.Name.Equals(sortKeyProp, StringComparison.OrdinalIgnoreCase))
+            {
+                matchingAttribute = attributes.KeyValueOrDefault(schema.Sk);
+            }
+
+            if (matchingAttribute is not null)
+            {
+                prop.SetValue(instance, Reflection.ToNetType(prop.PropertyType, matchingAttribute.Value.Value));
             }
         }
 
@@ -53,7 +47,7 @@ internal static class EntityBuilder
         var entityType = typeof(T);
         var ctors = entityType.GetConstructors();
 
-        if (Array.Exists(ctors, c => c.GetParameters().Length == 0))
+        if (ctors.Any(c => c.GetParameters().Length == 0))
         {
             var instance = Activator.CreateInstance(entityType)!;
             return (T)HydrateFromProps(entityType, instance, attributes, schema);
@@ -68,30 +62,34 @@ internal static class EntityBuilder
                     var ctor = x.Item1;
                     var parameters = x.Item2;
 
+                    schema.PartitionMap.TryGetValue(entityType, out var partitionKeyProp);
+                    schema.SortMap.TryGetValue(entityType, out var sortKeyProp);
+
                     var args = parameters
                         .Select(p =>
                         {
-                            if (p.Name is null) return null;
-
-                            if (attributes.TryGetValue(p.Name, out var attribute))
-                                return Reflection.ToNetType(p.ParameterType, attribute);
-
-                            var partitionKeyProp = schema.PartitionMap.TryGetValue(entityType, out var partitionValue)
-                                ? partitionValue
-                                : schema.Pk;
-                            var sortKeyProp = schema.SortMap.TryGetValue(entityType, out var sortValue)
-                                ? sortValue
-                                : schema.Sk;
-
-                            if (string.Equals(p.Name, partitionKeyProp, StringComparison.OrdinalIgnoreCase))
+                            if (p.Name is null)
                             {
-                                if (attributes.TryGetValue(schema.Pk, out attribute))
-                                    return Reflection.ToNetType(p.ParameterType, attribute);
+                                return null;
                             }
-                            else if (string.Equals(p.Name, sortKeyProp, StringComparison.OrdinalIgnoreCase))
+
+                            var matchingAttribute = attributes.KeyValueOrDefault(p.Name);
+
+                            if (matchingAttribute is null &&
+                                p.Name.Equals(partitionKeyProp, StringComparison.OrdinalIgnoreCase))
                             {
-                                if (attributes.TryGetValue(schema.Sk, out attribute))
-                                    return Reflection.ToNetType(p.ParameterType, attribute);
+                                matchingAttribute = attributes.KeyValueOrDefault(schema.Pk);
+                            }
+
+                            if (matchingAttribute is null &&
+                                p.Name.Equals(sortKeyProp, StringComparison.OrdinalIgnoreCase))
+                            {
+                                matchingAttribute = attributes.KeyValueOrDefault(schema.Sk);
+                            }
+
+                            if (matchingAttribute is not null)
+                            {
+                                return Reflection.ToNetType(p.ParameterType, matchingAttribute.Value.Value);
                             }
 
                             return p.ParameterType.IsValueType ? Activator.CreateInstance(p.ParameterType) : null;
@@ -112,7 +110,9 @@ internal static class EntityBuilder
         var (instanceOrNull, exception) = instanceOpt;
 
         if (instanceOrNull != null)
+        {
             return instanceOrNull;
+        }
 
         throw new TurbineException($"Could not create instance of {entityType.Name}.", exception);
     }

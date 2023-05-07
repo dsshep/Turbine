@@ -1,7 +1,5 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Turbine.Old", "Turbine.Old\Turbine.Old.fsproj", "{1DE58535-8B69-4FA6-85C0-1036D40CA9E8}"
-EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Turbine.Tests", "Turbine.Tests\Turbine.Tests.fsproj", "{1DF5EDF3-0AA9-4B6B-875B-BF321F730E58}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Turbine", "Turbine\Turbine.csproj", "{2811CD8A-1685-49C9-9363-AC720B62F7BF}"
@@ -12,10 +10,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{1DE58535-8B69-4FA6-85C0-1036D40CA9E8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{1DE58535-8B69-4FA6-85C0-1036D40CA9E8}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{1DE58535-8B69-4FA6-85C0-1036D40CA9E8}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{1DE58535-8B69-4FA6-85C0-1036D40CA9E8}.Release|Any CPU.Build.0 = Release|Any CPU
 		{1DF5EDF3-0AA9-4B6B-875B-BF321F730E58}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{1DF5EDF3-0AA9-4B6B-875B-BF321F730E58}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1DF5EDF3-0AA9-4B6B-875B-BF321F730E58}.Release|Any CPU.ActiveCfg = Release|Any CPU
