@@ -45,16 +45,16 @@ internal static class EntityBuilder
         IReadOnlyDictionary<string, AttributeValue> attributes)
     {
         var entityType = typeof(T);
-        var ctors = entityType.GetConstructors();
+        var constructors = entityType.GetConstructors();
 
-        if (ctors.Any(c => c.GetParameters().Length == 0))
+        if (constructors.Any(c => c.GetParameters().Length == 0))
         {
             var instance = Activator.CreateInstance(entityType)!;
             return (T)HydrateFromProps(entityType, instance, attributes, schema);
         }
 
         var instanceOpt =
-            ctors
+            constructors
                 .Select(c => (c, c.GetParameters()))
                 .OrderByDescending(x => x.Item2.Length)
                 .Select<(ConstructorInfo, ParameterInfo[]), (T?, Exception?)>(x =>
@@ -114,6 +114,6 @@ internal static class EntityBuilder
             return instanceOrNull;
         }
 
-        throw new TurbineException($"Could not create instance of {entityType.Name}.", exception);
+        throw new TurbineException($"Could not create instance of '{entityType.Name}'.", exception);
     }
 }

@@ -1,5 +1,7 @@
 namespace Turbine.Tests
 
+open System
+open Amazon.DynamoDBv2.Model
 open Turbine
 open Turbine.Tests.SeedDb
 open Xunit
@@ -84,5 +86,52 @@ module PutTests =
                                 .ToListAsync()
 
                         Assert.Equal<Customer list>(entitiesToInsert, customers |> Seq.toList)
+                    })
+        }
+
+    [<Fact>]
+    let ``Can convert special type`` () =
+        task {
+            do!
+                runTest (fun client ->
+                    task {
+
+                        let ulidCustomer = generateUlidCustomer ()
+
+                        let schema =
+                            Schema(tableName)
+                                .AddEntity<CustomerWithUlid>()
+                                .PkMapping(fun c -> c.Id)
+                                .SkMapping(fun c -> c.FullName)
+                                .Schema
+
+                        use turbine = new Turbine(client)
+
+                        Turbine.FromDynamoConverters[typeof<Ulid>] <- fun (a: AttributeValue) -> Ulid.Parse(a.S) |> box
+                        Turbine.ToDynamoConverters[typeof<Ulid>] <- fun (u: obj) -> AttributeValue(S = string u)
+
+                        do!
+                            turbine
+                                .Put<CustomerWithUlid>(schema)
+                                .WithPk(fun c -> ulidCustomer.Id.ToString())
+                                .WithSk(fun c -> c.FullName)
+                                .UpsertAsync(ulidCustomer)
+
+                        let! customer =
+                            turbine
+                                .Query<CustomerWithUlid>(schema)
+                                .WithPk(ulidCustomer.Id.ToString())
+                                .WithSk(SortKey.Exactly(ulidCustomer.FullName))
+                                .QueryAsync()
+
+                        Assert.Multiple(
+                            (fun () -> Assert.True(customer.Id = ulidCustomer.Id)),
+                            (fun () -> Assert.True(customer.FullName = ulidCustomer.FullName)),
+                            (fun () -> Assert.True(customer.PhoneNumber = ulidCustomer.PhoneNumber)),
+                            (fun () -> Assert.True(customer.Street = ulidCustomer.Street)),
+                            (fun () -> Assert.True(customer.City = ulidCustomer.City)),
+                            (fun () -> Assert.True(customer.PostCode = ulidCustomer.PostCode)),
+                            (fun () -> Assert.True(customer.Country = ulidCustomer.Country))
+                        )
                     })
         }

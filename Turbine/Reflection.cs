@@ -3,31 +3,71 @@ using Amazon.DynamoDBv2.Model;
 
 namespace Turbine;
 
-public static class Reflection
+internal static class Reflection
 {
+    private static readonly Dictionary<Type, Func<AttributeValue, object>> NetToDynamoLookup = new()
+    {
+        { typeof(string), static av => av.S },
+        { typeof(Guid), static av => Guid.Parse(av.S) },
+        { typeof(int), static av => int.Parse(av.N) },
+        { typeof(long), static av => long.Parse(av.N) },
+        { typeof(float), static av => float.Parse(av.N) },
+        { typeof(double), static av => double.Parse(av.N) },
+        { typeof(decimal), static av => decimal.Parse(av.N) },
+        { typeof(bool), static av => bool.Parse(av.BOOL.ToString()) },
+        { typeof(DateTime), static av => DateTime.Parse(av.S) },
+        { typeof(DateTimeOffset), static av => DateTimeOffset.Parse(av.S) },
+        { typeof(DateOnly), static av => DateOnly.Parse(av.S) },
+        { typeof(TimeOnly), static av => TimeOnly.Parse(av.S) },
+        { typeof(TimeSpan), static av => TimeSpan.FromTicks(long.Parse(av.N)) },
+        { typeof(byte[]), static av => av.B.ToArray() }
+    };
+
+    private static readonly Dictionary<Type, Func<object, AttributeValue>> DynamoToNetLookup = new()
+    {
+        { typeof(string), static value => new AttributeValue { S = value.ToString() } },
+        { typeof(Guid), static value => new AttributeValue { S = value.ToString() } },
+        { typeof(int), static value => new AttributeValue { N = value.ToString() } },
+        { typeof(long), static value => new AttributeValue { N = value.ToString() } },
+        { typeof(float), static value => new AttributeValue { N = value.ToString() } },
+        { typeof(double), static value => new AttributeValue { N = value.ToString() } },
+        { typeof(decimal), static value => new AttributeValue { N = value.ToString() } },
+        { typeof(bool), static value => new AttributeValue { BOOL = (bool)value } },
+        { typeof(DateTime), static value => new AttributeValue { S = ((DateTime)value).ToString("o") } },
+        { typeof(DateTimeOffset), static value => new AttributeValue { S = ((DateTimeOffset)value).ToString("o") } },
+        { typeof(DateOnly), static value => new AttributeValue { S = ((DateOnly)value).ToString("o") } },
+        { typeof(TimeOnly), static value => new AttributeValue { S = ((TimeOnly)value).ToString("o") } },
+        { typeof(TimeSpan), static value => new AttributeValue { N = ((TimeSpan)value).Ticks.ToString() } },
+        { typeof(byte[]), static value => new AttributeValue { B = new MemoryStream((byte[])value) } }
+    };
+
     public static string GetPropertyName<T, TProperty>(Expression<Func<T, TProperty>> expr)
     {
-        if (expr.Body is MemberExpression memberExpr) return memberExpr.Member.Name;
+        if (expr.Body is MemberExpression memberExpr)
+        {
+            return memberExpr.Member.Name;
+        }
 
         throw new TurbineException("Invalid expression: must be a property access expression");
     }
 
     public static object? ToNetType(Type t, AttributeValue av)
     {
-        if (t == typeof(string)) return av.S;
-        if (t == typeof(Guid)) return Guid.Parse(av.S);
-        if (t == typeof(int)) return int.Parse(av.N);
-        if (t == typeof(long)) return long.Parse(av.N);
-        if (t == typeof(float)) return float.Parse(av.N);
-        if (t == typeof(double)) return double.Parse(av.N);
-        if (t == typeof(decimal)) return decimal.Parse(av.N);
-        if (t == typeof(bool)) return bool.Parse(av.BOOL.ToString());
-        if (t == typeof(DateTime)) return DateTime.Parse(av.S);
-        if (t == typeof(TimeSpan)) return TimeSpan.Parse(av.S);
-        if (t == typeof(byte[])) return av.B.ToArray();
+        if (NetToDynamoLookup.TryGetValue(t, out var converter))
+        {
+            return converter(av);
+        }
+
+        if (Turbine.FromDynamoConverters.TryGetValue(t, out var customConverter))
+        {
+            return customConverter(av);
+        }
 
         if (!t.IsGenericType || t.GetGenericTypeDefinition() != typeof(Nullable<>))
-            throw new TurbineException($"Type '{t.Name}' not supported");
+        {
+            throw new TurbineException(
+                $"Type '{t.Name}' not supported. If this is a custom type, use Turbine.FromDynamoConverters and Turbine.FromDynamoConverters to define the type conversion.");
+        }
 
         var underlyingType = Nullable.GetUnderlyingType(t);
         return av.NULL || underlyingType is null ? null : ToNetType(underlyingType, av);
@@ -37,21 +77,22 @@ public static class Reflection
     {
         var t = value.GetType();
 
-        if (t == typeof(string)) return new AttributeValue { S = (string)value };
-        if (t == typeof(Guid)) return new AttributeValue { S = value.ToString() };
-        if (t == typeof(int)) return new AttributeValue { N = value.ToString() };
-        if (t == typeof(long)) return new AttributeValue { N = value.ToString() };
-        if (t == typeof(float)) return new AttributeValue { N = value.ToString() };
-        if (t == typeof(double)) return new AttributeValue { N = value.ToString() };
-        if (t == typeof(decimal)) return new AttributeValue { N = value.ToString() };
-        if (t == typeof(bool)) return new AttributeValue { BOOL = (bool)value };
-        if (t == typeof(DateTime)) return new AttributeValue { S = ((DateTime)value).ToString("o") };
-        if (t == typeof(TimeSpan)) return new AttributeValue { S = ((TimeSpan)value).ToString() };
-        if (t == typeof(byte[])) return new AttributeValue { B = new MemoryStream((byte[])value) };
+        if (DynamoToNetLookup.TryGetValue(t, out var converter))
+        {
+            return converter(value);
+        }
 
         if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Nullable<>))
+        {
             return new AttributeValue { NULL = true };
+        }
 
-        throw new TurbineException($"Type '{t.Name}' not supported");
+        if (Turbine.ToDynamoConverters.TryGetValue(t, out var customConverter))
+        {
+            return customConverter(value);
+        }
+
+        throw new TurbineException(
+            $"Type '{t.Name}' not supported. If this is a custom type, use Turbine.FromDynamoConverters and Turbine.FromDynamoConverters to define the type conversion.");
     }
 }

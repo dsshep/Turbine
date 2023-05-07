@@ -8,6 +8,15 @@ module SeedDb =
     open Amazon.DynamoDBv2
     open Amazon.DynamoDBv2.Model
 
+    type CustomerWithUlid =
+        { Id: Ulid
+          FullName: string
+          PhoneNumber: string
+          Street: string
+          City: string
+          PostCode: string
+          Country: string }
+
     type AutoPropCustomer() =
         member val Id: Guid = Unchecked.defaultof<_> with get, set
         member val FullName: string = Unchecked.defaultof<_> with get, set
@@ -17,6 +26,9 @@ module SeedDb =
         member val PostCode: string = Unchecked.defaultof<_> with get, set
         member val Country: string = Unchecked.defaultof<_> with get, set
 
+        member val DateOfBirth: DateTimeOffset = Unchecked.defaultof<_> with get, set
+        member val HasMadePurchase: bool = Unchecked.defaultof<_> with get, set
+
     type Customer =
         { Id: Guid
           FullName: string
@@ -24,9 +36,22 @@ module SeedDb =
           Street: string
           City: string
           PostCode: string
-          Country: string }
+          Country: string
+          DateOfBirth: DateTimeOffset
+          HasMadePurchase: bool }
 
-    let private faker = Faker "en"
+
+
+    let faker = Faker "en"
+
+    let generateUlidCustomer () : CustomerWithUlid =
+        { Id = Ulid.NewUlid()
+          FullName = faker.Name.FullName()
+          PhoneNumber = faker.Phone.PhoneNumber()
+          Street = faker.Address.StreetAddress()
+          City = faker.Address.City()
+          PostCode = faker.Address.ZipCode()
+          Country = "GB" }
 
     let generateCustomer () =
         { Id = faker.Random.Guid()
@@ -35,7 +60,9 @@ module SeedDb =
           Street = faker.Address.StreetAddress()
           City = faker.Address.City()
           PostCode = faker.Address.ZipCode()
-          Country = "GB" }
+          Country = "GB"
+          DateOfBirth = faker.Date.PastOffset()
+          HasMadePurchase = faker.Random.Bool() }
 
     let seed
         (tableName: string)
