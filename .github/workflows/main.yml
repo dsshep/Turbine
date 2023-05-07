@@ -26,7 +26,7 @@ jobs:
         run: dotnet build --configuration Release --no-restore
 
       - name: Run tests
-        workingDirectory: Turbine.Tests
+        working-directory: Turbine.Tests
         run: dotnet test --no-build --verbosity normal
 
       - name: Publish NuGet package
