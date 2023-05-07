@@ -1,3 +1,5 @@
+[![Build, Test, and Publish to NuGet](https://github.com/dsshep/Turbine/actions/workflows/main.yml/badge.svg)](https://github.com/dsshep/Turbine/actions/workflows/main.yml)
+
 # Turbine
 
 A high level dotnet API for performing CRUD operations on Dynamo DB entities stored in a single table.
