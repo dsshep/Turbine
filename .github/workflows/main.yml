@@ -26,8 +26,7 @@ jobs:
         run: dotnet build --configuration Release --no-restore
 
       - name: Run tests
-        working-directory: Turbine.Tests
-        run: dotnet test --no-build --verbosity normal
+        run: dotnet test --no-restore --no-build --verbosity normal
 
       - name: Publish NuGet package
         if:  github.ref == 'refs/heads/main' && success()
