@@ -35,7 +35,7 @@ module QueryTests =
                                 .Query<AutoPropCustomer>(schema)
                                 .WithPk(string firstCustomer.Id)
                                 .WithSk(SortKey.Exactly(firstCustomer.FullName))
-                                .QueryAsync()
+                                .FirstOrDefaultAsync()
 
                         Assert.Multiple(
                             (fun () -> Assert.True(customer.Id = firstCustomer.Id)),
@@ -75,7 +75,7 @@ module QueryTests =
                                 .Query<Customer>(schema)
                                 .WithPk(string firstCustomer.Id)
                                 .WithSk(SortKey.Exactly(firstCustomer.FullName))
-                                .QueryAsync()
+                                .FirstOrDefaultAsync()
 
                         Assert.Multiple(
                             (fun () -> Assert.True(customer.Id = firstCustomer.Id)),

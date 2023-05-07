@@ -37,8 +37,8 @@ The schema can be defined as:
 ```csharp
 var tableSchema = new Schema(tableName)
     .AddEntity<Customer>()
-    .PartitionKeyMapping(fun c -> c.Country)
-    .SortKeyMapping(fun c -> c.City)
+    .PkMapping(fun c -> c.Country)
+    .SkMapping(fun c -> c.City)
     .Schema
 ```
 ### Querying data
@@ -55,7 +55,7 @@ var customer = await turbine
     .Query<Customer>(schema)
     .WithPk("GB")
     .WithSk(SortKey.Exactly("Nottingham"))
-    .QueryAsync()
+    .FirstOrDefaultAsync()
 ```
 
 If we wanted a list of customers in cities beginning with "L":
@@ -102,6 +102,5 @@ Beyond:
 - Nested entities
 - Attribute Projections
 - Map to/from json
-- Transactions
 - Return metrics/ rcus
 - lists and maps

@@ -37,7 +37,7 @@ module PutTests =
                                 .Query<Customer>(schema)
                                 .WithPk(string entityToInsert.Id)
                                 .WithSk(SortKey.Exactly entityToInsert.FullName)
-                                .QueryAsync()
+                                .FirstOrDefaultAsync()
 
                         Assert.Multiple(
                             (fun () -> Assert.True(customer.Id = entityToInsert.Id)),
@@ -122,7 +122,7 @@ module PutTests =
                                 .Query<CustomerWithUlid>(schema)
                                 .WithPk(ulidCustomer.Id.ToString())
                                 .WithSk(SortKey.Exactly(ulidCustomer.FullName))
-                                .QueryAsync()
+                                .FirstOrDefaultAsync()
 
                         Assert.Multiple(
                             (fun () -> Assert.True(customer.Id = ulidCustomer.Id)),

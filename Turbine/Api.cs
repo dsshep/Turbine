@@ -41,7 +41,7 @@ public class QueryList<T> : List<T>
 
 public interface IQuery<T>
 {
-    Task<T?> QueryAsync();
+    Task<T?> FirstOrDefaultAsync();
     Task<QueryList<T>> ToListAsync();
     Task<QueryList<T>> ToListAsync(int? limit);
 }

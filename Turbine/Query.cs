@@ -54,7 +54,10 @@ internal class Query<T> : IPageableQuery, IQuery<T>
 
         queryRequest.ExpressionAttributeValues = new Dictionary<string, AttributeValue>(expressionAttributes);
 
-        if (itemLimit.HasValue) queryRequest.Limit = itemLimit.Value;
+        if (itemLimit.HasValue)
+        {
+            queryRequest.Limit = itemLimit.Value;
+        }
 
         queryRequest.ExclusiveStartKey = lastEvalKey;
 
@@ -62,7 +65,7 @@ internal class Query<T> : IPageableQuery, IQuery<T>
         return result;
     }
 
-    public async Task<T?> QueryAsync()
+    public async Task<T?> FirstOrDefaultAsync()
     {
         var result = await DoQuery(1);
 
