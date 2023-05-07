@@ -2,28 +2,27 @@
 
     <PropertyGroup>
         <TargetFramework>net6.0</TargetFramework>
-
         <IsPackable>false</IsPackable>
         <GenerateProgramFile>false</GenerateProgramFile>
         <IsTestProject>true</IsTestProject>
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Include="RunTest.fs" />
-        <Compile Include="SeedDb.fs" />
-        <Compile Include="QueryTests.fs" />
-        <Compile Include="PutTests.fs" />
-        <Compile Include="Program.fs" />
+        <Compile Include="RunTest.fs"/>
+        <Compile Include="SeedDb.fs"/>
+        <Compile Include="QueryTests.fs"/>
+        <Compile Include="PutTests.fs"/>
+        <Compile Include="Program.fs"/>
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.7.103" />
-        <PackageReference Include="Bogus" Version="34.0.2" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.5.0" />
-        <PackageReference Include="Testcontainers" Version="3.1.0" />
-        <PackageReference Include="Testcontainers.DynamoDb" Version="3.1.0" />
-        <PackageReference Include="Ulid" Version="1.2.6" />
-        <PackageReference Include="xunit" Version="2.4.2" />
+        <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.7.103"/>
+        <PackageReference Include="Bogus" Version="34.0.2"/>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.5.0"/>
+        <PackageReference Include="Testcontainers" Version="3.1.0"/>
+        <PackageReference Include="Testcontainers.DynamoDb" Version="3.1.0"/>
+        <PackageReference Include="Ulid" Version="1.2.6"/>
+        <PackageReference Include="xunit" Version="2.4.2"/>
         <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5">
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
             <PrivateAssets>all</PrivateAssets>
@@ -35,7 +34,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Turbine\Turbine.csproj" />
+        <ProjectReference Include="..\Turbine\Turbine.csproj"/>
     </ItemGroup>
 
 </Project>
