@@ -15,7 +15,9 @@ module SeedDb =
           Street: string
           City: string
           PostCode: string
-          Country: string }
+          Country: string
+          DateOfBirth: DateTimeOffset
+          HasMadePurchase: bool }
 
     type AutoPropCustomer() =
         member val Id: Guid = Unchecked.defaultof<_> with get, set
@@ -51,7 +53,9 @@ module SeedDb =
           Street = faker.Address.StreetAddress()
           City = faker.Address.City()
           PostCode = faker.Address.ZipCode()
-          Country = "GB" }
+          Country = "GB"
+          DateOfBirth = faker.Date.PastOffset()
+          HasMadePurchase = faker.Random.Bool() }
 
     let generateCustomer () =
         { Id = faker.Random.Guid()
@@ -85,6 +89,14 @@ module SeedDb =
                           KeyValuePair<string, AttributeValue>("city", AttributeValue(item.City))
                           KeyValuePair<string, AttributeValue>("postCode", AttributeValue(item.PostCode))
                           KeyValuePair<string, AttributeValue>("country", AttributeValue(item.Country))
+                          KeyValuePair<string, AttributeValue>(
+                              "dateOfBirth",
+                              AttributeValue(S = item.DateOfBirth.ToString("o"))
+                          )
+                          KeyValuePair<string, AttributeValue>(
+                              "hasMadePurchase",
+                              AttributeValue(BOOL = item.HasMadePurchase)
+                          )
 
                           KeyValuePair<string, AttributeValue>("json", AttributeValue(serialized)) ]
                         @ (additionalAttributes item)

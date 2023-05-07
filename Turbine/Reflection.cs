@@ -5,7 +5,7 @@ namespace Turbine;
 
 internal static class Reflection
 {
-    private static readonly Dictionary<Type, Func<AttributeValue, object>> NetToDynamoLookup = new()
+    private static readonly Dictionary<Type, Func<AttributeValue, object>> DynamoToNetLookup = new()
     {
         { typeof(string), static av => av.S },
         { typeof(Guid), static av => Guid.Parse(av.S) },
@@ -23,7 +23,7 @@ internal static class Reflection
         { typeof(byte[]), static av => av.B.ToArray() }
     };
 
-    private static readonly Dictionary<Type, Func<object, AttributeValue>> DynamoToNetLookup = new()
+    private static readonly Dictionary<Type, Func<object, AttributeValue>> NetToDynamoLookup = new()
     {
         { typeof(string), static value => new AttributeValue { S = value.ToString() } },
         { typeof(Guid), static value => new AttributeValue { S = value.ToString() } },
@@ -53,7 +53,7 @@ internal static class Reflection
 
     public static object? ToNetType(Type t, AttributeValue av)
     {
-        if (NetToDynamoLookup.TryGetValue(t, out var converter))
+        if (DynamoToNetLookup.TryGetValue(t, out var converter))
         {
             return converter(av);
         }
@@ -77,7 +77,7 @@ internal static class Reflection
     {
         var t = value.GetType();
 
-        if (DynamoToNetLookup.TryGetValue(t, out var converter))
+        if (NetToDynamoLookup.TryGetValue(t, out var converter))
         {
             return converter(value);
         }
