@@ -26,7 +26,7 @@ jobs:
         run: dotnet build --configuration Release --no-restore
 
       - name: Run tests
-        run: dotnet test --no-restore --no-build --verbosity normal
+        run: dotnet test --no-restore --no-build --verbosity diag
 
       - name: Publish NuGet package
         if:  github.ref == 'refs/heads/main' && success()
