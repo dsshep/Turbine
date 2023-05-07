@@ -3,6 +3,9 @@
 A high level dotnet API for performing CRUD operations on Dynamo DB entities stored in a single table.
 
 ## Getting Started
+
+New to Single Table Design? Check out these resources: [Yotube](https://www.youtube.com/watch?v=6yqfmXiZTlM&t=18s), [AWS Workshop](https://amazon-dynamodb-labs.workshop.aws/hands-on-labs.html).
+
 (Nuget package not available)
 
 ### Define the schema
@@ -34,11 +37,11 @@ The schema can be defined as:
 ```csharp
 var tableSchema = new Schema(tableName)
     .AddEntity<Customer>()
-    .PartitionKey(fun c -> c.Country)
-    .SortKey(fun c -> c.City)
+    .PartitionKeyMapping(fun c -> c.Country)
+    .SortKeyMapping(fun c -> c.City)
     .Schema
 ```
-### Query the data
+### Querying data
 
 If we wanted to find the first customer in Nottingham:
 
@@ -83,12 +86,14 @@ v0.1 tasks:
 | List Entities, Constructor    | ✅      | 
 | Delete Entity                 |        |
 | Batch Delete                  |        |
-| Put Entity                    |        | 
-| Batch Put Entity              |        |
+| Put Entity                    | ✅      | 
+| Put Entities                  | ✅      | 
 | CI pipeline and push to nuget |        |
 
 Beyond:
 
+- Counts
+- Atomic operations, transactions
 - Custom hydration, e.g. compound sort keys
 - Query on GSIs
 - Scans
@@ -96,4 +101,7 @@ Beyond:
 - Sort entities
 - Nested entities
 - Attribute Projections
-  
+- Map to/from json
+- Transactions
+- Return metrics/ rcus
+- lists and maps

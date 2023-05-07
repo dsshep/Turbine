@@ -6,11 +6,11 @@ open System.Linq.Expressions
 
 type EntitySchema<'T>(schema: Schema, partitionMap: Dictionary<Type, string>, sortMap: Dictionary<Type, string>) =
 
-    member this.PartitionKey<'TProperty>(partitionKey: Expression<Func<'T, 'TProperty>>) =
+    member this.PkMapping<'TProperty>(partitionKey: Expression<Func<'T, 'TProperty>>) =
         partitionMap[typeof<'T>] <- Reflection.getPropertyName partitionKey
         this
 
-    member this.SortKey<'TProperty>(partitionKey: Expression<Func<'T, 'TProperty>>) =
+    member this.SkMapping<'TProperty>(partitionKey: Expression<Func<'T, 'TProperty>>) =
         sortMap[typeof<'T>] <- Reflection.getPropertyName partitionKey
         this
 

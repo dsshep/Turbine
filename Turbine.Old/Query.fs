@@ -74,7 +74,7 @@ module internal Query =
                         result.Items
                         |> Seq.map (fun item -> EntityBuilder.hydrateEntity<'T> (this.query.Schema, item))
 
-                    return PageList<_>(entities, limit, result, this, this.query.Schema)
+                    return QueryList<_>(entities, limit, result, this, this.query.Schema)
                 }
 
     [<Struct>]

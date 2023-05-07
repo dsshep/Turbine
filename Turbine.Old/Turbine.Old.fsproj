@@ -2,15 +2,18 @@
     <PropertyGroup>
         <TargetFramework>net6.0</TargetFramework>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <RootNamespace>Turbine</RootNamespace>
     </PropertyGroup>
     <ItemGroup>
         <Compile Include="Exceptions.fs" />
+        <Compile Include="Helpers.fs" />
         <Compile Include="Reflection.fs" />
         <Compile Include="Schema.fs" />
         <Compile Include="SortKey.fs" />
         <Compile Include="EntityBuilder.fs" />
         <Compile Include="Api.fs" />
         <Compile Include="Query.fs" />
+        <Compile Include="Put.fs" />
         <Compile Include="Turbine.fs" />
     </ItemGroup>
     <ItemGroup>

@@ -14,7 +14,6 @@ type SortKey private (keyExpr: string, attributeValue1: AttributeValue, ?attribu
     static member GreaterThan(value: string) =
         SortKey("<SORT_KEY> > :skVal", AttributeValue(value))
 
-
     static member GreaterThanOrEqual(value: string) =
         SortKey("<SORT_KEY> >= :skVal", AttributeValue(value))
 

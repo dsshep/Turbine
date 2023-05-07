@@ -10,7 +10,7 @@ type internal IPageableQuery<'T> =
     abstract member DoQuery:
         itemLimit: Nullable<int> * ?lastEvalKey: Dictionary<string, AttributeValue> -> Task<QueryResponse>
 
-type PageList<'T> =
+type QueryList<'T> =
     inherit ResizeArray<'T>
     val private hasNextPage: bool
     val private pageSize: Nullable<int>
@@ -28,7 +28,7 @@ type PageList<'T> =
                 response.Items
                 |> Seq.map (fun item -> EntityBuilder.hydrateEntity<'T> (this.schema, item))
 
-            return PageList<_>(entities, this.pageSize, response, this.query, this.schema)
+            return QueryList<_>(entities, this.pageSize, response, this.query, this.schema)
         }
 
     internal new(items: seq<'T>,
@@ -46,12 +46,29 @@ type PageList<'T> =
 type IQuery<'T> =
     abstract member QueryAsync: unit -> Task<'T>
 
-    abstract member ToListAsync: unit -> Task<PageList<'T>>
+    abstract member ToListAsync: unit -> Task<QueryList<'T>>
 
-    abstract member ToListAsync: limit: Nullable<int> -> Task<PageList<'T>>
+    abstract member ToListAsync: limit: Nullable<int> -> Task<QueryList<'T>>
 
 type IQueryBuilderSk<'T> =
     abstract member WithSk: SortKey -> IQuery<'T>
 
 type IQueryBuilderPk<'T> =
-    abstract member WithPk<'TProperty> : value: string -> IQueryBuilderSk<'T>
+    abstract member WithPk: value: string -> IQueryBuilderSk<'T>
+
+type IPut<'T> =
+    abstract member UpsertAsync<'T> : 'T -> Task
+
+    abstract member UpsertAsync<'T> : seq<'T> -> Task
+
+    abstract member PutIfNotExists: 'T -> Task<bool>
+
+type IPutBuilderSk<'T> =
+    abstract member WithSk: value: string -> IPut<'T>
+
+    abstract member WithSk: ('T -> string) -> IPut<'T>
+
+type IPutBuilderPk<'T> =
+    abstract member WithPk: value: string -> IPutBuilderSk<'T>
+
+    abstract member WithPk: ('T -> string) -> IPutBuilderSk<'T>
