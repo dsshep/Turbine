@@ -119,11 +119,6 @@ public sealed class Turbine : IDisposable
             {
                 return false;
             }
-            catch (Exception ex)
-            {
-                var x = 1 + 2;
-                throw;
-            }
         }
 
         public async ValueTask DisposeAsync()

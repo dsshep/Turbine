@@ -112,4 +112,3 @@ v0.1 tasks:
 - Attribute Projections
 - Map to/from json
 - Return metrics/ rcus
-- lists and maps
