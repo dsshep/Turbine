@@ -31,10 +31,10 @@ jobs:
       - name: Run tests
         run: dotnet test --no-restore
 
-      - name: Publish NuGet package
+      - name: Pack NuGet package
         if:  github.ref == 'refs/heads/main' && success()
         run: dotnet pack Turbine/Turbine.csproj --configuration Release --output out
 
       - name: Push to NuGet
         if:  github.ref == 'refs/heads/main' && success()
-        run: dotnet nuget push ./out/*.nupkg --skip-duplicate --no-symbols true
+        run: dotnet nuget push ./out/*.nupkg  -k ${{ secrets.NUGET_KEY }} -s https://api.nuget.org/v3/index.json
