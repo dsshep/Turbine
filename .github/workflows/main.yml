@@ -18,6 +18,9 @@ jobs:
         uses: actions/setup-dotnet@v1
         with:
           dotnet-version: '6.0.x'
+        env:
+          NUGET_AUTH_TOKEN: ${{ secrets.NUGET_API_KEY }}
+          
 
       - name: Restore dependencies
         run: dotnet restore
@@ -30,11 +33,8 @@ jobs:
 
       - name: Publish NuGet package
         if:  github.ref == 'refs/heads/main' && success()
-        run: dotnet pack Turbine/Turbine.csproj --configuration Release --no-build --output out
+        run: dotnet pack Turbine/Turbine.csproj --configuration Release --output out
 
       - name: Push to NuGet
         if:  github.ref == 'refs/heads/main' && success()
-        uses: brandedoutcast/publish-nuget@v2
-        with:
-          PROJECT_FILE_PATH: Turbine/Turbine.csproj
-          NUGET_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: dotnet nuget push ./out/*.nupkg --skip-duplicate --no-symbols true
