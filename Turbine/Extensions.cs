@@ -9,8 +9,31 @@ internal static class Extensions
             .FirstOrDefault(kvp =>
                 kvp.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
 
-        if (kvp.Equals(default(KeyValuePair<string, TValue>))) return null;
+        if (kvp.Equals(default(KeyValuePair<string, TValue>)))
+        {
+            return null;
+        }
 
         return kvp;
+    }
+
+    public static Dictionary<TKey, TValue> Merge<TKey, TValue>(
+        this Dictionary<TKey, TValue> dict1,
+        Dictionary<TKey, TValue> dict2)
+        where TKey : notnull
+    {
+        var newDict = new Dictionary<TKey, TValue>(dict1.Count + dict2.Count);
+
+        foreach (var kvp in dict1)
+        {
+            newDict.Add(kvp.Key, kvp.Value);
+        }
+
+        foreach (var kvp in dict2)
+        {
+            newDict.Add(kvp.Key, kvp.Value);
+        }
+
+        return newDict;
     }
 }

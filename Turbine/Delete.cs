@@ -6,12 +6,12 @@ namespace Turbine;
 internal class Delete<T> : IDelete<T>
 {
     private readonly IAmazonDynamoDB client;
-    private readonly EntitySchema<T> entitySchema;
+    private readonly ItemSchema<T> itemSchema;
     private readonly IQueryBuilderPk<T> query;
 
-    public Delete(EntitySchema<T> entitySchema, IQueryBuilderPk<T> query, IAmazonDynamoDB client)
+    public Delete(ItemSchema<T> itemSchema, IQueryBuilderPk<T> query, IAmazonDynamoDB client)
     {
-        this.entitySchema = entitySchema;
+        this.itemSchema = itemSchema;
         this.query = query;
         this.client = client;
     }
@@ -20,13 +20,13 @@ internal class Delete<T> : IDelete<T>
     {
         var key = new Dictionary<string, AttributeValue>
         {
-            { entitySchema.TableSchema.Pk, new AttributeValue(pk) },
-            { entitySchema.TableSchema.Sk, new AttributeValue(sk) }
+            { itemSchema.TableSchema.Pk, new AttributeValue(pk) },
+            { itemSchema.TableSchema.Sk, new AttributeValue(sk) }
         };
 
         var deleteRequest = new DeleteItemRequest
         {
-            TableName = entitySchema.TableSchema.TableName,
+            TableName = itemSchema.TableSchema.TableName,
             Key = key
         };
 
@@ -53,8 +53,8 @@ internal class Delete<T> : IDelete<T>
     {
         ArgumentNullException.ThrowIfNull(item);
 
-        var pk = entitySchema.GetPk(item);
-        var sk = entitySchema.GetSk(item);
+        var pk = itemSchema.GetPk(item);
+        var sk = itemSchema.GetSk(item);
 
         await DeleteAsync(pk, sk);
     }
@@ -74,15 +74,15 @@ internal class Delete<T> : IDelete<T>
                     {
                         Key = new Dictionary<string, AttributeValue>
                         {
-                            { entitySchema.TableSchema.Pk, new AttributeValue(entitySchema.GetPk(i!)) },
-                            { entitySchema.TableSchema.Sk, new AttributeValue(entitySchema.GetSk(i!)) }
+                            { itemSchema.TableSchema.Pk, new AttributeValue(itemSchema.GetPk(i!)) },
+                            { itemSchema.TableSchema.Sk, new AttributeValue(itemSchema.GetSk(i!)) }
                         }
                     }
                 })
                 .ToList();
 
             var requestItems = new Dictionary<string, List<WriteRequest>>
-                { { entitySchema.TableSchema.TableName, writeRequests } };
+                { { itemSchema.TableSchema.TableName, writeRequests } };
 
             _ = await client.BatchWriteItemAsync(requestItems);
 
@@ -95,5 +95,82 @@ internal class Delete<T> : IDelete<T>
 
             break;
         }
+    }
+}
+
+internal class TransactDelete<T> : ITransactDelete<T>
+{
+    private readonly ItemSchema<T> itemSchema;
+    private readonly ITurbineTransact turbineTransact;
+    private readonly Action<TransactWriteItem> writeItem;
+
+    public TransactDelete(
+        ItemSchema<T> itemSchema,
+        ITurbineTransact turbineTransact,
+        Action<TransactWriteItem> writeItem)
+    {
+        this.itemSchema = itemSchema;
+        this.turbineTransact = turbineTransact;
+        this.writeItem = writeItem;
+    }
+
+    public ITurbineTransact Delete(string pk, string sk)
+    {
+        writeItem(new TransactWriteItem
+        {
+            Delete = new Delete
+            {
+                TableName = itemSchema.TableSchema.TableName,
+                Key = new Dictionary<string, AttributeValue>
+                {
+                    { itemSchema.TableSchema.Pk, new AttributeValue(pk) },
+                    { itemSchema.TableSchema.Sk, new AttributeValue(sk) }
+                }
+            }
+        });
+
+        return turbineTransact;
+    }
+
+    public ITurbineTransact Delete(string pk, string sk, Condition condition)
+    {
+        var conditionCheck = condition.ToConditionCheck(itemSchema.TableSchema.TableName);
+
+        var transactionWrite = new TransactWriteItem
+        {
+            Delete = new Delete
+            {
+                TableName = itemSchema.TableSchema.TableName,
+                Key = new Dictionary<string, AttributeValue>
+                {
+                    { itemSchema.TableSchema.Pk, new AttributeValue(pk) },
+                    { itemSchema.TableSchema.Sk, new AttributeValue(sk) }
+                }
+            }
+        };
+
+        if (conditionCheck is not null)
+        {
+            transactionWrite.Delete.ConditionExpression = conditionCheck.ConditionExpression;
+            transactionWrite.Delete.ExpressionAttributeValues = conditionCheck.ExpressionAttributeValues;
+        }
+
+        writeItem(transactionWrite);
+
+        return turbineTransact;
+    }
+
+    public ITurbineTransact Delete(T item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        return Delete(itemSchema.GetPk(item), itemSchema.GetSk(item));
+    }
+
+    public ITurbineTransact Delete(T item, Condition condition)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        return Delete(itemSchema.GetPk(item), itemSchema.GetSk(item), condition);
     }
 }

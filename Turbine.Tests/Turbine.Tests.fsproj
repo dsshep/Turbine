@@ -10,9 +10,12 @@
     <ItemGroup>
         <Compile Include="TestContext.fs" />
         <Compile Include="TestData.fs" />
+        <Compile Include="ConditionTests.fs" />
         <Compile Include="QueryTests.fs" />
         <Compile Include="PutTests.fs" />
         <Compile Include="DeleteTests.fs" />
+        <Compile Include="ListMapTests.fs" />
+        <Compile Include="TransactionTests.fs" />
         <Compile Include="Program.fs" />
     </ItemGroup>
 

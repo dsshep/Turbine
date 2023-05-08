@@ -4,7 +4,7 @@ using Amazon.DynamoDBv2.DataModel;
 
 namespace Turbine;
 
-public abstract class EntitySchema
+public abstract class ItemSchema
 {
     internal abstract TableSchema TableSchema { get; }
 
@@ -21,7 +21,7 @@ public abstract class EntitySchema
     internal abstract bool IsSkProperty(string name);
 }
 
-public sealed class EntitySchema<T> : EntitySchema
+public sealed class ItemSchema<T> : ItemSchema
 {
     private readonly (PropertyInfo, DynamoDBHashKeyAttribute)? hashKeyAttribute;
     private readonly PropertyInfo? pkProperty;
@@ -57,7 +57,7 @@ public sealed class EntitySchema<T> : EntitySchema
     private PropertyInfo? skMappedProperty;
     private Func<T, string>? skNameBuilder;
 
-    internal EntitySchema(TableSchema tableSchema, StringComparison stringComparison)
+    internal ItemSchema(TableSchema tableSchema, StringComparison stringComparison)
     {
         TableSchema = tableSchema;
         this.stringComparison = stringComparison;
@@ -90,19 +90,19 @@ public sealed class EntitySchema<T> : EntitySchema
 
     internal override TableSchema TableSchema { get; }
 
-    public EntitySchema<T> PartitionKey(Func<T, string> pkBuilder)
+    public ItemSchema<T> PartitionKey(Func<T, string> pkBuilder)
     {
         pkNameBuilder = pkBuilder;
         return this;
     }
 
-    public EntitySchema<T> SortKey(Func<T, string> skBuilder)
+    public ItemSchema<T> SortKey(Func<T, string> skBuilder)
     {
         skNameBuilder = skBuilder;
         return this;
     }
 
-    public EntitySchema<T> MapPk<TProperty>(Expression<Func<T, TProperty>> mapping)
+    public ItemSchema<T> MapPk<TProperty>(Expression<Func<T, TProperty>> mapping)
     {
         var property = Reflection.GetPropertyName(mapping);
 
@@ -111,7 +111,7 @@ public sealed class EntitySchema<T> : EntitySchema
         return this;
     }
 
-    public EntitySchema<T> MapSk<TProperty>(Expression<Func<T, TProperty>> mapping)
+    public ItemSchema<T> MapSk<TProperty>(Expression<Func<T, TProperty>> mapping)
     {
         var property = Reflection.GetPropertyName(mapping);
 
@@ -248,10 +248,10 @@ public sealed class EntitySchema<T> : EntitySchema
             $"Cannot determine {fieldName} field for '{typeof(T).Name}'.");
     }
 
-    public EntitySchema<T> AddEntity()
+    public ItemSchema<T> AddEntity()
     {
-        var entitySchema = new EntitySchema<T>(TableSchema, stringComparison);
-        TableSchema.EntitySchemas.Add(entitySchema);
+        var entitySchema = new ItemSchema<T>(TableSchema, stringComparison);
+        TableSchema.EntitySchemas.Add(typeof(T), entitySchema);
         return entitySchema;
     }
 }

@@ -9,10 +9,10 @@ internal static class EntityBuilder
         Type t,
         object instance,
         IReadOnlyDictionary<string, AttributeValue> attributes,
-        EntitySchema entitySchema)
+        ItemSchema itemSchema)
     {
-        var partitionKeyProp = entitySchema.GetPkProperty();
-        var sortKeyProp = entitySchema.GetSkProperty();
+        var partitionKeyProp = itemSchema.GetPkProperty();
+        var sortKeyProp = itemSchema.GetSkProperty();
 
         var props = Array.FindAll(t.GetProperties(), p => p.GetSetMethod(true) != null);
 
@@ -20,19 +20,20 @@ internal static class EntityBuilder
         {
             var matchingAttribute = attributes.KeyValueOrDefault(prop.Name);
 
-            if (matchingAttribute is null && entitySchema.IsPkProperty(prop.Name))
+            if (matchingAttribute is null && itemSchema.IsPkProperty(prop.Name))
             {
-                matchingAttribute = attributes.KeyValueOrDefault(entitySchema.TableSchema.Pk);
+                matchingAttribute = attributes.KeyValueOrDefault(itemSchema.TableSchema.Pk);
             }
 
-            if (matchingAttribute is null && entitySchema.IsSkProperty(prop.Name))
+            if (matchingAttribute is null && itemSchema.IsSkProperty(prop.Name))
             {
-                matchingAttribute = attributes.KeyValueOrDefault(entitySchema.TableSchema.Sk);
+                matchingAttribute = attributes.KeyValueOrDefault(itemSchema.TableSchema.Sk);
             }
 
             if (matchingAttribute is not null)
             {
-                prop.SetValue(instance, Reflection.ToNetType(prop.PropertyType, matchingAttribute.Value.Value));
+                prop.SetValue(instance,
+                    Reflection.FromAttributeValue(prop.PropertyType, matchingAttribute.Value.Value));
             }
         }
 
@@ -40,7 +41,7 @@ internal static class EntityBuilder
     }
 
     public static T HydrateEntity<T>(
-        EntitySchema entitySchema,
+        ItemSchema itemSchema,
         IReadOnlyDictionary<string, AttributeValue> attributes)
     {
         var entityType = typeof(T);
@@ -52,7 +53,7 @@ internal static class EntityBuilder
                 entityType,
                 Activator.CreateInstance(entityType)!,
                 attributes,
-                entitySchema);
+                itemSchema);
         }
 
         var instanceOpt =
@@ -74,19 +75,19 @@ internal static class EntityBuilder
 
                             var matchingAttribute = attributes.KeyValueOrDefault(p.Name);
 
-                            if (matchingAttribute is null && entitySchema.IsPkProperty(p.Name))
+                            if (matchingAttribute is null && itemSchema.IsPkProperty(p.Name))
                             {
-                                matchingAttribute = attributes.KeyValueOrDefault(entitySchema.TableSchema.Pk);
+                                matchingAttribute = attributes.KeyValueOrDefault(itemSchema.TableSchema.Pk);
                             }
 
-                            if (matchingAttribute is null && entitySchema.IsSkProperty(p.Name))
+                            if (matchingAttribute is null && itemSchema.IsSkProperty(p.Name))
                             {
-                                matchingAttribute = attributes.KeyValueOrDefault(entitySchema.TableSchema.Sk);
+                                matchingAttribute = attributes.KeyValueOrDefault(itemSchema.TableSchema.Sk);
                             }
 
                             if (matchingAttribute is not null)
                             {
-                                return Reflection.ToNetType(p.ParameterType, matchingAttribute.Value.Value);
+                                return Reflection.FromAttributeValue(p.ParameterType, matchingAttribute.Value.Value);
                             }
 
                             return p.ParameterType.IsValueType ? Activator.CreateInstance(p.ParameterType) : null;

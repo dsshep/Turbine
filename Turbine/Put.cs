@@ -6,9 +6,9 @@ namespace Turbine;
 internal class Put<T> : IPut<T>
 {
     private readonly IAmazonDynamoDB client;
-    private readonly EntitySchema schema;
+    private readonly ItemSchema schema;
 
-    public Put(EntitySchema schema, IAmazonDynamoDB client)
+    public Put(ItemSchema schema, IAmazonDynamoDB client)
     {
         this.schema = schema;
         this.client = client;
@@ -44,7 +44,7 @@ internal class Put<T> : IPut<T>
     public async Task UpsertAsync(IEnumerable<T> items)
     {
         var putRequests = items
-            .Select(i => new WriteRequest { PutRequest = new PutRequest(ConvertToAttributes(i)) })
+            .Select(i => new WriteRequest { PutRequest = new PutRequest(AttributeConverter.Convert(schema, i)) })
             .Chunk(25)
             .Select(chunk => chunk.ToList())
             .ToArray();
@@ -61,7 +61,93 @@ internal class Put<T> : IPut<T>
         }
     }
 
-    private Dictionary<string, AttributeValue> ConvertToAttributes(T item)
+    private PutItemRequest PrepareRequest(T item)
+    {
+        var putRequest = new PutItemRequest { TableName = schema.TableSchema.TableName };
+
+        var attributes = AttributeConverter.Convert(schema, item);
+
+        putRequest.Item = attributes;
+
+        return putRequest;
+    }
+}
+
+internal class TransactPut<T> : ITransactPut<T>
+{
+    private readonly ItemSchema<T> itemSchema;
+    private readonly ITurbineTransact turbineTransact;
+    private readonly Action<TransactWriteItem> writeItem;
+
+    public TransactPut(
+        ItemSchema<T> itemSchema,
+        ITurbineTransact turbineTransact,
+        Action<TransactWriteItem> writeItem)
+    {
+        this.itemSchema = itemSchema;
+        this.turbineTransact = turbineTransact;
+        this.writeItem = writeItem;
+    }
+
+    public ITurbineTransact Upsert(T entity)
+    {
+        return Upsert(entity, Condition.None);
+    }
+
+    public ITurbineTransact Upsert(T entity, Condition condition)
+    {
+        var item = new TransactWriteItem
+        {
+            Put = new Put
+            {
+                TableName = itemSchema.TableSchema.TableName,
+                Item = AttributeConverter.Convert(itemSchema, entity)
+            }
+        };
+
+        if (condition != Condition.None)
+        {
+            item.ConditionCheck = condition.ToConditionCheck(itemSchema.TableSchema.TableName);
+        }
+
+        writeItem(new TransactWriteItem
+        {
+            Put = new Put
+            {
+                TableName = itemSchema.TableSchema.TableName,
+                Item = AttributeConverter.Convert(itemSchema, entity)
+            }
+        });
+
+        return turbineTransact;
+    }
+
+    public ITurbineTransact Upsert(IEnumerable<T> entities)
+    {
+        return Upsert(entities, Condition.None);
+    }
+
+    public ITurbineTransact Upsert(IEnumerable<T> entities, Condition condition)
+    {
+        var enumerable = entities as T[] ?? entities.ToArray();
+
+        if (enumerable.Length > 25)
+        {
+            throw new TurbineException("Cannot insert more than 25 items in a single transaction.");
+        }
+
+        foreach (var item in enumerable)
+        {
+            Upsert(item, condition);
+        }
+
+        return turbineTransact;
+    }
+}
+
+internal static class AttributeConverter
+{
+    public static Dictionary<string, AttributeValue> Convert<T>(ItemSchema schema, T item)
     {
         ArgumentNullException.ThrowIfNull(item);
 
@@ -92,16 +178,5 @@ internal class Put<T> : IPut<T>
         }
 
         return attributes;
-    }
-
-    private PutItemRequest PrepareRequest(T item)
-    {
-        var putRequest = new PutItemRequest { TableName = schema.TableSchema.TableName };
-
-        var attributes = ConvertToAttributes(item);
-
-        putRequest.Item = attributes;
-
-        return putRequest;
     }
 }

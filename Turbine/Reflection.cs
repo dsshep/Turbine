@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Linq.Expressions;
 using Amazon.DynamoDBv2.Model;
 
@@ -41,6 +42,53 @@ internal static class Reflection
         { typeof(byte[]), static value => new AttributeValue { B = new MemoryStream((byte[])value) } }
     };
 
+    private static bool IsEnumerable(Type t)
+    {
+        foreach (var interfaceType in t.GetInterfaces())
+        {
+            if (interfaceType.IsGenericType && interfaceType.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+            {
+                return true;
+            }
+
+            if (interfaceType == typeof(IEnumerable))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsDictionary(Type t)
+    {
+        var genericDef = t.GetGenericTypeDefinition();
+
+        if (genericDef == typeof(IDictionary<,>)
+            || genericDef == typeof(IReadOnlyDictionary<,>)
+            || t == typeof(IDictionary))
+        {
+            return true;
+        }
+
+        foreach (var interfaceType in t.GetInterfaces())
+        {
+            if (interfaceType.IsGenericType
+                && (interfaceType.GetGenericTypeDefinition() == typeof(IDictionary<,>)
+                    || interfaceType.GetGenericTypeDefinition() == typeof(IReadOnlyDictionary<,>)))
+            {
+                return true;
+            }
+
+            if (interfaceType == typeof(IDictionary))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static string GetPropertyName<T, TProperty>(Expression<Func<T, TProperty>> expr)
     {
         if (expr.Body is MemberExpression memberExpr)
@@ -51,7 +99,7 @@ internal static class Reflection
         throw new TurbineException("Invalid expression: must be a property access expression.");
     }
 
-    public static object? ToNetType(Type t, AttributeValue av)
+    public static object? FromAttributeValue(Type t, AttributeValue av)
     {
         if (DynamoToNetLookup.TryGetValue(t, out var converter))
         {
@@ -63,14 +111,46 @@ internal static class Reflection
             return customConverter(av);
         }
 
-        if (!t.IsGenericType || t.GetGenericTypeDefinition() != typeof(Nullable<>))
+        if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Nullable<>))
         {
-            throw new TurbineException(
-                $"Type '{t.Name}' not supported. If this is a custom type, use Turbine.FromDynamoConverters and Turbine.FromDynamoConverters to define the type conversion.");
+            var underlyingType = Nullable.GetUnderlyingType(t);
+            return av.NULL || underlyingType is null ? null : FromAttributeValue(underlyingType, av);
         }
 
-        var underlyingType = Nullable.GetUnderlyingType(t);
-        return av.NULL || underlyingType is null ? null : ToNetType(underlyingType, av);
+        if (IsDictionary(t))
+        {
+            var valueType = t.GetGenericArguments()[1];
+            var dictType = typeof(Dictionary<,>).MakeGenericType(typeof(string), valueType);
+
+            if (Activator.CreateInstance(dictType) is IDictionary returnDict)
+            {
+                foreach (var (key, value) in av.M)
+                {
+                    returnDict[key] = FromAttributeValue(valueType, value)!;
+                }
+
+                return returnDict;
+            }
+        }
+
+        if (IsEnumerable(t))
+        {
+            var listItemType = t.GetGenericArguments()[0];
+            var listType = typeof(List<>).MakeGenericType(listItemType);
+
+            if (Activator.CreateInstance(listType) is IList returnList)
+            {
+                foreach (var attribute in av.L)
+                {
+                    returnList.Add(FromAttributeValue(listItemType, attribute)!);
+                }
+
+                return returnList;
+            }
+        }
+
+        throw new TurbineException(
+            $"Type '{t.Name}' not supported. If this is a custom type, use Turbine.FromDynamoConverters and Turbine.FromDynamoConverters to define the type conversion.");
     }
 
     public static AttributeValue ToAttributeValue(object value)
@@ -90,6 +170,34 @@ internal static class Reflection
         if (Turbine.ToDynamoConverters.TryGetValue(t, out var customConverter))
         {
             return customConverter(value);
+        }
+
+        if (IsDictionary(t))
+        {
+            var dictionary = (IDictionary)value;
+            var attributeValues = new Dictionary<string, AttributeValue>();
+
+            foreach (DictionaryEntry entry in dictionary)
+            {
+                attributeValues[entry.Key.ToString()!] = ToAttributeValue(entry.Value!);
+            }
+
+            return new AttributeValue
+            {
+                M = attributeValues
+            };
+        }
+
+        if (IsEnumerable(t))
+        {
+            var enumerable = (IEnumerable)value;
+
+            var attributeValues = enumerable.Cast<object>().Select(ToAttributeValue).ToList();
+
+            return new AttributeValue
+            {
+                L = attributeValues
+            };
         }
 
         throw new TurbineException(

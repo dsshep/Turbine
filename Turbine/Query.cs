@@ -5,13 +5,13 @@ namespace Turbine;
 
 internal struct PreparedQuery<T>
 {
-    public EntitySchema<T> EntitySchema { get; }
+    public ItemSchema<T> ItemSchema { get; }
     public string Pk { get; }
     public SortKey Sk { get; }
 
-    public PreparedQuery(EntitySchema<T> entitySchema, string pk, SortKey sk)
+    public PreparedQuery(ItemSchema<T> itemSchema, string pk, SortKey sk)
     {
-        EntitySchema = entitySchema;
+        ItemSchema = itemSchema;
         Pk = pk;
         Sk = sk;
     }
@@ -30,7 +30,7 @@ internal class Query<T> : IPageableQuery, IQuery<T>
 
     public async Task<QueryResponse> DoQuery(int? itemLimit, Dictionary<string, AttributeValue>? lastEvalKey = null)
     {
-        var (pk, sk, schema) = (query.Pk, query.Sk, query.EntitySchema);
+        var (pk, sk, schema) = (query.Pk, query.Sk, query.ItemSchema);
         var sortKeyExpr = sk.KeyExpr.Replace("<SORT_KEY>", schema.TableSchema.Sk);
 
         var queryRequest = new QueryRequest
@@ -70,7 +70,7 @@ internal class Query<T> : IPageableQuery, IQuery<T>
         var result = await DoQuery(1);
 
         return result.Items.Count == 1
-            ? EntityBuilder.HydrateEntity<T>(query.EntitySchema, result.Items[0])
+            ? EntityBuilder.HydrateEntity<T>(query.ItemSchema, result.Items[0])
             : default;
     }
 
@@ -84,21 +84,21 @@ internal class Query<T> : IPageableQuery, IQuery<T>
         var result = await DoQuery(limit);
 
         var entities = result.Items
-            .Select(item => EntityBuilder.HydrateEntity<T>(query.EntitySchema, item))
+            .Select(item => EntityBuilder.HydrateEntity<T>(query.ItemSchema, item))
             .ToList();
 
-        return new QueryList<T>(entities, limit, result, this, query.EntitySchema);
+        return new QueryList<T>(entities, limit, result, this, query.ItemSchema);
     }
 }
 
 internal struct PreparedPk<T>
 {
-    public EntitySchema<T> EntitySchema { get; }
+    public ItemSchema<T> ItemSchema { get; }
     public string Pk { get; }
 
-    public PreparedPk(EntitySchema<T> entitySchema, string pk)
+    public PreparedPk(ItemSchema<T> itemSchema, string pk)
     {
-        EntitySchema = entitySchema;
+        ItemSchema = itemSchema;
         Pk = pk;
     }
 }
@@ -117,7 +117,7 @@ internal class QueryBuilderSk<T> : IQueryBuilderSk<T>
     public IQuery<T> WithSk(SortKey sortKey)
     {
         return new Query<T>(
-            new PreparedQuery<T>(pk.EntitySchema, pk.Pk, sortKey),
+            new PreparedQuery<T>(pk.ItemSchema, pk.Pk, sortKey),
             client);
     }
 }
@@ -125,16 +125,16 @@ internal class QueryBuilderSk<T> : IQueryBuilderSk<T>
 internal class QueryBuilderPk<T> : IQueryBuilderPk<T>
 {
     private readonly IAmazonDynamoDB client;
-    private readonly EntitySchema<T> entitySchema;
+    private readonly ItemSchema<T> itemSchema;
 
-    public QueryBuilderPk(EntitySchema<T> entitySchema, IAmazonDynamoDB client)
+    public QueryBuilderPk(ItemSchema<T> itemSchema, IAmazonDynamoDB client)
     {
-        this.entitySchema = entitySchema;
+        this.itemSchema = itemSchema;
         this.client = client;
     }
 
     public IQueryBuilderSk<T> WithPk(string value)
     {
-        return new QueryBuilderSk<T>(new PreparedPk<T>(entitySchema, value), client);
+        return new QueryBuilderSk<T>(new PreparedPk<T>(itemSchema, value), client);
     }
 }

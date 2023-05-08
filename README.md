@@ -19,7 +19,7 @@ For example, if you have a table:
 |---------------|----------|---------------|
 | pk            | sk       | ...           |
 
-Where we store an entity called customer:
+Where we store an item called customer:
 
 ```csharp
 class Customer 
@@ -37,11 +37,12 @@ class Customer
 The schema can be defined as:
 
 ```csharp
-var tableSchema = new Schema(tableName)
+var tableSchema = new TableSchema(tableName);
+
+var itemSchema = new Schema(tableName)
     .AddEntity<Customer>()
-    .PkMapping(fun c -> c.Country)
-    .SkMapping(fun c -> c.City)
-    .Schema
+    .MapPk(fun c -> c.Country)
+    .MapSk(fun c -> c.City)
 ```
 ### Querying data
 
@@ -54,7 +55,7 @@ var client = ...
 using var turbine = new Turbine(client)
 
 var customer = await turbine
-    .Query<Customer>(schema)
+    .Query<Customer>(itemSchema)
     .WithPk("GB")
     .WithSk(SortKey.Exactly("Nottingham"))
     .FirstOrDefaultAsync()
@@ -69,10 +70,31 @@ var client = ...
 using var turbine = new Turbine(client)
 
 var customer = await turbine
-    .Query<Customer>(schema)
+    .Query<Customer>(itemSchema)
     .WithPk("GB")
     .WithSk(SortKey.BeginsWith("L"))
     .ToListAsync()
+```
+
+`ToListAsync` takes an optional `limit` parameter, that can be used to set the page size.
+
+## Commands
+
+To add an item, use `UpsertAsync`:
+
+```csharp
+await turbine
+    .WithSchema(itemSchema)
+    .UpsertAsync(customer);
+```
+
+`UpsertAsync` can also operate on an `IEnumerable<T>`, using a batches of 25 regardless of enumerable size.
+
+Set it to only insert the item if it does not already exist:
+```csharp
+var exists = await turbine
+    .WithSchema(itemSchema)
+    .PutIfNotExistsAsync(customer);
 ```
 
 
@@ -80,23 +102,8 @@ var customer = await turbine
 
 v0.1 tasks:
 
-| Task                          | Status |
-|-------------------------------|--------|
-| Query Entity, Props           | ✅      | 
-| Query Entity, Constructor     | ✅      | 
-| List Entities, Props          | ✅      | 
-| List Entities, Constructor    | ✅      | 
-| Delete Entity                 |        |
-| Batch Delete                  |        |
-| Put Entity                    | ✅      | 
-| Put Entities                  | ✅      | 
-| CI pipeline and push to nuget |        |
-
-Beyond:
-
-- Counts
-- Atomic operations, transactions
-- Custom hydration, e.g. compound sort keys
+- Update
+- Custom hydration
 - Query on GSIs
 - Scans
   - Filter expressions
