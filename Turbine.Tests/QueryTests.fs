@@ -1,164 +1,142 @@
-namespace Turbine.Tests
+module QueryTests
 
 open System.Collections.Generic
 open Amazon.DynamoDBv2.Model
 open Turbine
-open Turbine.Tests.SeedDb
+open Xunit
 
-module QueryTests =
+open TestContext
+open TestData
 
-    open Xunit
-    open Turbine.Tests
-
-    [<Fact>]
-    let ``Can perform simple query`` () =
+[<Fact>]
+let ``Can perform simple query`` () =
+    runTest (fun client ->
         task {
-            do!
-                runTest (fun client ->
-                    task {
-                        let! customers =
-                            seed tableName (fun c -> string c.Id) (fun c -> c.FullName) (fun _ -> []) client
+            let! customers = seed tableName (fun c -> string c.Id) (fun c -> c.FullName) (fun _ -> []) client
 
-                        let firstCustomer = customers |> Seq.head
+            let firstCustomer = customers |> Seq.head
 
-                        let schema =
-                            Schema(tableName)
-                                .AddEntity<AutoPropCustomer>()
-                                .PkMapping(fun c -> c.Id)
-                                .SkMapping(fun c -> c.FullName)
-                                .Schema
+            let schema =
+                TableSchema(tableName)
+                    .AddEntity<AutoPropCustomer>()
+                    .MapPk(fun c -> c.Id)
+                    .MapSk(fun c -> c.FullName)
 
-                        use turbine = new Turbine(client)
+            use turbine = new Turbine(client)
 
-                        let! customer =
-                            turbine
-                                .Query<AutoPropCustomer>(schema)
-                                .WithPk(string firstCustomer.Id)
-                                .WithSk(SortKey.Exactly(firstCustomer.FullName))
-                                .FirstOrDefaultAsync()
+            let! customer =
+                turbine
+                    .Query<AutoPropCustomer>(schema)
+                    .WithPk(string firstCustomer.Id)
+                    .WithSk(SortKey.Exactly(firstCustomer.FullName))
+                    .FirstOrDefaultAsync()
 
-                        Assert.Multiple(
-                            (fun () -> Assert.True(customer.Id = firstCustomer.Id)),
-                            (fun () -> Assert.True(customer.FullName = firstCustomer.FullName)),
-                            (fun () -> Assert.True(customer.PhoneNumber = firstCustomer.PhoneNumber)),
-                            (fun () -> Assert.True(customer.Street = firstCustomer.Street)),
-                            (fun () -> Assert.True(customer.City = firstCustomer.City)),
-                            (fun () -> Assert.True(customer.PostCode = firstCustomer.PostCode)),
-                            (fun () -> Assert.True(customer.Country = firstCustomer.Country))
-                        )
+            Assert.Multiple(
+                (fun () -> Assert.True(customer.Id = firstCustomer.Id)),
+                (fun () -> Assert.True(customer.FullName = firstCustomer.FullName)),
+                (fun () -> Assert.True(customer.PhoneNumber = firstCustomer.PhoneNumber)),
+                (fun () -> Assert.True(customer.Street = firstCustomer.Street)),
+                (fun () -> Assert.True(customer.City = firstCustomer.City)),
+                (fun () -> Assert.True(customer.PostCode = firstCustomer.PostCode)),
+                (fun () -> Assert.True(customer.Country = firstCustomer.Country)),
+                (fun () -> Assert.True(customer.DateOfBirth = firstCustomer.DateOfBirth)),
+                (fun () -> Assert.True(customer.HasMadePurchase = firstCustomer.HasMadePurchase))
+            )
 
-                    })
-        }
+        })
 
-    [<Fact>]
-    let ``Can perform simple query, with ctor`` () =
+
+[<Fact>]
+let ``Can perform simple query, with ctor`` () =
+    runTest (fun client ->
         task {
-            do!
-                runTest (fun client ->
-                    task {
-                        let! customers =
-                            seed tableName (fun c -> string c.Id) (fun c -> c.FullName) (fun _ -> []) client
+            let! customers = seed tableName (fun c -> string c.Id) (fun c -> c.FullName) (fun _ -> []) client
 
-                        let firstCustomer = customers |> Seq.head
+            let firstCustomer = customers |> Seq.head
 
-                        let schema =
-                            Schema(tableName)
-                                .AddEntity<Customer>()
-                                .PkMapping(fun c -> c.Id)
-                                .SkMapping(fun c -> c.FullName)
-                                .Schema
+            let schema =
+                TableSchema(tableName)
+                    .AddEntity<Customer>()
+                    .MapPk(fun c -> c.Id)
+                    .MapSk(fun c -> c.FullName)
 
-                        use turbine = new Turbine(client)
+            use turbine = new Turbine(client)
 
-                        let! customer =
-                            turbine
-                                .Query<Customer>(schema)
-                                .WithPk(string firstCustomer.Id)
-                                .WithSk(SortKey.Exactly(firstCustomer.FullName))
-                                .FirstOrDefaultAsync()
+            let! customer =
+                turbine
+                    .Query<Customer>(schema)
+                    .WithPk(string firstCustomer.Id)
+                    .WithSk(SortKey.Exactly(firstCustomer.FullName))
+                    .FirstOrDefaultAsync()
 
-                        Assert.Multiple(
-                            (fun () -> Assert.True(customer.Id = firstCustomer.Id)),
-                            (fun () -> Assert.True(customer.FullName = firstCustomer.FullName)),
-                            (fun () -> Assert.True(customer.PhoneNumber = firstCustomer.PhoneNumber)),
-                            (fun () -> Assert.True(customer.Street = firstCustomer.Street)),
-                            (fun () -> Assert.True(customer.City = firstCustomer.City)),
-                            (fun () -> Assert.True(customer.PostCode = firstCustomer.PostCode)),
-                            (fun () -> Assert.True(customer.Country = firstCustomer.Country))
-                        )
+            Assert.Equal(customer, firstCustomer)
+        })
 
-                    })
-        }
 
-    [<Fact>]
-    let ``Can fetch list of entities`` () =
+[<Fact>]
+let ``Can fetch list of entities`` () =
+    runTest (fun client ->
         task {
-            do!
-                runTest (fun client ->
-                    task {
-                        let! customers =
-                            seed
-                                tableName
-                                (fun _ -> "NAME")
-                                (fun c -> c.FullName)
-                                (fun c -> [ KeyValuePair<string, AttributeValue>("id", AttributeValue(string c.Id)) ])
-                                client
+            let! customers =
+                seed
+                    tableName
+                    (fun _ -> "NAME")
+                    (fun c -> c.FullName)
+                    (fun c -> [ KeyValuePair<string, AttributeValue>("id", AttributeValue(string c.Id)) ])
+                    client
 
-                        let schema =
-                            Schema(tableName).AddEntity<Customer>().SkMapping(fun c -> c.FullName).Schema
+            let tableSchema = TableSchema(tableName)
 
-                        use turbine = new Turbine(client)
+            let schema = tableSchema.AddEntity<Customer>().MapSk(fun c -> c.FullName)
 
-                        let! customerList =
-                            turbine
-                                .Query<Customer>(schema)
-                                .WithPk("NAME")
-                                .WithSk(SortKey.BeginsWith("M"))
-                                .ToListAsync()
+            use turbine = new Turbine(client)
 
-                        let expectedCustomers =
-                            customers
-                            |> Seq.filter (fun c -> c.FullName.StartsWith("M"))
-                            |> Seq.sortDescending
-                            |> Seq.toList
+            let! customerList =
+                turbine
+                    .Query<Customer>(schema)
+                    .WithPk("NAME")
+                    .WithSk(SortKey.BeginsWith("M"))
+                    .ToListAsync()
 
-                        let orderedCustomers = customerList |> Seq.sortDescending |> Seq.toList
+            let expectedCustomers =
+                customers
+                |> Seq.filter (fun c -> c.FullName.StartsWith("M"))
+                |> Seq.sortDescending
+                |> Seq.toList
 
-                        Assert.Equal<Customer list>(expectedCustomers, orderedCustomers)
-                    })
-        }
+            let orderedCustomers = customerList |> Seq.sortDescending |> Seq.toList
 
-    [<Fact>]
-    let ``Can paginate list of entities`` () =
+            Assert.Equal<Customer list>(expectedCustomers, orderedCustomers)
+        })
+
+
+[<Fact>]
+let ``Can paginate list of entities`` () =
+    runTest (fun client ->
         task {
-            do!
-                runTest (fun client ->
-                    task {
-                        let! customers =
-                            seed
-                                tableName
-                                (fun _ -> "NAME")
-                                (fun c -> $"{c.Country}#{c.Id}")
-                                (fun c -> [ KeyValuePair<string, AttributeValue>("id", AttributeValue(string c.Id)) ])
-                                client
+            let! _ =
+                seed
+                    tableName
+                    (fun _ -> "NAME")
+                    (fun c -> $"{c.Country}#{c.Id}")
+                    (fun c -> [ KeyValuePair<string, AttributeValue>("id", AttributeValue(string c.Id)) ])
+                    client
 
-                        let schema =
-                            Schema(tableName).AddEntity<Customer>().SkMapping(fun c -> c.FullName).Schema
+            let schema = TableSchema(tableName).AddEntity<Customer>().MapSk(fun c -> c.FullName)
 
-                        use turbine = new Turbine(client)
+            use turbine = new Turbine(client)
 
-                        let! firstPage =
-                            turbine
-                                .Query<Customer>(schema)
-                                .WithPk("NAME")
-                                .WithSk(SortKey.BeginsWith("GB"))
-                                .ToListAsync(10)
+            let! firstPage =
+                turbine
+                    .Query<Customer>(schema)
+                    .WithPk("NAME")
+                    .WithSk(SortKey.BeginsWith("GB"))
+                    .ToListAsync(10)
 
-                        Assert.True(firstPage.HasNextPage)
+            Assert.True(firstPage.HasNextPage)
 
-                        let! nextPage = firstPage.NextPageAsync()
+            let! nextPage = firstPage.NextPageAsync()
 
-                        Assert.Equal(nextPage.Count, firstPage.Count)
-                        Assert.True(nextPage.HasNextPage)
-                    })
-        }
+            Assert.Equal(nextPage.Count, firstPage.Count)
+            Assert.True(nextPage.HasNextPage)
+        })

@@ -9,20 +9,24 @@ internal interface IPageableQuery
 
 public class QueryList<T> : List<T>
 {
+    private readonly EntitySchema<T> entitySchema;
     private readonly int? pageSize;
     private readonly QueryResponse previousResponse;
     private readonly IPageableQuery query;
-    private readonly Schema schema;
 
-    internal QueryList(IEnumerable<T> items, int? pageSize, QueryResponse previousResponse, IPageableQuery query,
-        Schema schema)
+    internal QueryList(
+        IEnumerable<T> items,
+        int? pageSize,
+        QueryResponse previousResponse,
+        IPageableQuery query,
+        EntitySchema<T> entitySchema)
     {
         AddRange(items);
         HasNextPage = previousResponse.LastEvaluatedKey != null;
         this.pageSize = pageSize;
         this.previousResponse = previousResponse;
         this.query = query;
-        this.schema = schema;
+        this.entitySchema = entitySchema;
     }
 
     public bool HasNextPage { get; }
@@ -32,10 +36,10 @@ public class QueryList<T> : List<T>
         var response = await query.DoQuery(pageSize, previousResponse.LastEvaluatedKey);
 
         var entities = response.Items
-            .Select(item => EntityBuilder.HydrateEntity<T>(schema, item))
+            .Select(item => EntityBuilder.HydrateEntity<T>(entitySchema, item))
             .ToArray();
 
-        return new QueryList<T>(entities!, pageSize, response, query, schema);
+        return new QueryList<T>(entities, pageSize, response, query, entitySchema);
     }
 }
 
@@ -60,17 +64,5 @@ public interface IPut<in T>
 {
     Task UpsertAsync(T entity);
     Task UpsertAsync(IEnumerable<T> entities);
-    Task<bool> PutIfNotExists(T entity);
-}
-
-public interface IPutBuilderSk<T>
-{
-    IPut<T> WithSk(string value);
-    IPut<T> WithSk(Func<T, string> valueFunc);
-}
-
-public interface IPutBuilderPk<T>
-{
-    IPutBuilderSk<T> WithPk(string value);
-    IPutBuilderSk<T> WithPk(Func<T, string> valueFunc);
+    Task<bool> PutIfNotExistsAsync(T entity);
 }

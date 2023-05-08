@@ -23,13 +23,13 @@ public sealed class Turbine : IDisposable
         client.Dispose();
     }
 
-    public IQueryBuilderPk<T> Query<T>(Schema schema)
+    public IQueryBuilderPk<T> Query<T>(EntitySchema<T> entitySchema)
     {
-        return new QueryBuilderPk<T>(schema, client);
+        return new QueryBuilderPk<T>(entitySchema, client);
     }
 
-    public IPutBuilderPk<T> Put<T>(Schema schema)
+    public IPut<T> Put<T>(EntitySchema<T> schema)
     {
-        return new PutBuilderPk<T>(schema, client);
+        return new Put<T>(schema, client);
     }
 }

@@ -9,10 +9,10 @@ internal static class EntityBuilder
         Type t,
         object instance,
         IReadOnlyDictionary<string, AttributeValue> attributes,
-        Schema schema)
+        EntitySchema entitySchema)
     {
-        var partitionKeyProp = schema.PartitionMap.TryGetValue(t, out var partitionValue) ? partitionValue : schema.Pk;
-        var sortKeyProp = schema.SortMap.TryGetValue(t, out var sortValue) ? sortValue : schema.Sk;
+        var partitionKeyProp = entitySchema.GetPkProperty();
+        var sortKeyProp = entitySchema.GetSkProperty();
 
         var props = Array.FindAll(t.GetProperties(), p => p.GetSetMethod(true) != null);
 
@@ -20,16 +20,14 @@ internal static class EntityBuilder
         {
             var matchingAttribute = attributes.KeyValueOrDefault(prop.Name);
 
-            if (matchingAttribute is null &&
-                prop.Name.Equals(partitionKeyProp, StringComparison.OrdinalIgnoreCase))
+            if (matchingAttribute is null && entitySchema.IsPkProperty(prop.Name))
             {
-                matchingAttribute = attributes.KeyValueOrDefault(schema.Pk);
+                matchingAttribute = attributes.KeyValueOrDefault(entitySchema.TableSchema.Pk);
             }
 
-            if (matchingAttribute is null &&
-                prop.Name.Equals(sortKeyProp, StringComparison.OrdinalIgnoreCase))
+            if (matchingAttribute is null && entitySchema.IsSkProperty(prop.Name))
             {
-                matchingAttribute = attributes.KeyValueOrDefault(schema.Sk);
+                matchingAttribute = attributes.KeyValueOrDefault(entitySchema.TableSchema.Sk);
             }
 
             if (matchingAttribute is not null)
@@ -41,7 +39,8 @@ internal static class EntityBuilder
         return instance;
     }
 
-    public static T HydrateEntity<T>(Schema schema,
+    public static T HydrateEntity<T>(
+        EntitySchema entitySchema,
         IReadOnlyDictionary<string, AttributeValue> attributes)
     {
         var entityType = typeof(T);
@@ -49,7 +48,11 @@ internal static class EntityBuilder
 
         if (constructors.Any(c => c.GetParameters().Length == 0))
         {
-            return (T)HydrateFromProps(entityType, Activator.CreateInstance(entityType)!, attributes, schema);
+            return (T)HydrateFromProps(
+                entityType,
+                Activator.CreateInstance(entityType)!,
+                attributes,
+                entitySchema);
         }
 
         var instanceOpt =
@@ -61,9 +64,6 @@ internal static class EntityBuilder
                     var ctor = x.Item1;
                     var parameters = x.Item2;
 
-                    schema.PartitionMap.TryGetValue(entityType, out var partitionKeyProp);
-                    schema.SortMap.TryGetValue(entityType, out var sortKeyProp);
-
                     var args = parameters
                         .Select(p =>
                         {
@@ -74,16 +74,14 @@ internal static class EntityBuilder
 
                             var matchingAttribute = attributes.KeyValueOrDefault(p.Name);
 
-                            if (matchingAttribute is null &&
-                                p.Name.Equals(partitionKeyProp, StringComparison.OrdinalIgnoreCase))
+                            if (matchingAttribute is null && entitySchema.IsPkProperty(p.Name))
                             {
-                                matchingAttribute = attributes.KeyValueOrDefault(schema.Pk);
+                                matchingAttribute = attributes.KeyValueOrDefault(entitySchema.TableSchema.Pk);
                             }
 
-                            if (matchingAttribute is null &&
-                                p.Name.Equals(sortKeyProp, StringComparison.OrdinalIgnoreCase))
+                            if (matchingAttribute is null && entitySchema.IsSkProperty(p.Name))
                             {
-                                matchingAttribute = attributes.KeyValueOrDefault(schema.Sk);
+                                matchingAttribute = attributes.KeyValueOrDefault(entitySchema.TableSchema.Sk);
                             }
 
                             if (matchingAttribute is not null)

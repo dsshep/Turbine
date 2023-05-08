@@ -1,137 +1,140 @@
-namespace Turbine.Tests
+module PutTests
 
 open System
 open Amazon.DynamoDBv2.Model
 open Turbine
-open Turbine.Tests.SeedDb
 open Xunit
 
-module PutTests =
+open TestContext
+open TestData
 
-    [<Fact>]
-    let ``Can insert entity`` () =
+[<Fact>]
+let ``Can insert entity`` () =
+    runTest (fun client ->
         task {
-            do!
-                runTest (fun client ->
-                    task {
-                        let entityToInsert = generateCustomer ()
+            let entityToInsert = generateCustomer ()
 
-                        let schema =
-                            Schema(tableName)
-                                .AddEntity<Customer>()
-                                .PkMapping(fun c -> c.Id)
-                                .SkMapping(fun c -> c.FullName)
-                                .Schema
+            let schema =
+                TableSchema(tableName)
+                    .AddEntity<Customer>()
+                    .MapPk(fun c -> c.Id)
+                    .MapSk(fun c -> c.FullName)
 
-                        use turbine = new Turbine(client)
+            use turbine = new Turbine(client)
 
-                        do!
-                            turbine
-                                .Put(schema)
-                                .WithPk(entityToInsert.Id.ToString())
-                                .WithSk(entityToInsert.FullName)
-                                .UpsertAsync(entityToInsert)
+            do! turbine.Put(schema).UpsertAsync(entityToInsert)
 
-                        let! customer =
-                            turbine
-                                .Query<Customer>(schema)
-                                .WithPk(string entityToInsert.Id)
-                                .WithSk(SortKey.Exactly entityToInsert.FullName)
-                                .FirstOrDefaultAsync()
+            let! customer =
+                turbine
+                    .Query<Customer>(schema)
+                    .WithPk(string entityToInsert.Id)
+                    .WithSk(SortKey.Exactly entityToInsert.FullName)
+                    .FirstOrDefaultAsync()
 
-                        Assert.Multiple(
-                            (fun () -> Assert.True(customer.Id = entityToInsert.Id)),
-                            (fun () -> Assert.True(customer.FullName = entityToInsert.FullName)),
-                            (fun () -> Assert.True(customer.PhoneNumber = entityToInsert.PhoneNumber)),
-                            (fun () -> Assert.True(customer.Street = entityToInsert.Street)),
-                            (fun () -> Assert.True(customer.City = entityToInsert.City)),
-                            (fun () -> Assert.True(customer.PostCode = entityToInsert.PostCode)),
-                            (fun () -> Assert.True(customer.Country = entityToInsert.Country))
-                        )
-                    })
-        }
+            Assert.Equal(customer, entityToInsert)
+        })
 
-    [<Fact>]
-    let ``Can insert batches of entities`` () =
+
+[<Fact>]
+let ``Can insert batches of entities`` () =
+    runTest (fun client ->
         task {
-            do!
-                runTest (fun client ->
-                    task {
-                        let entitiesToInsert =
-                            [ for _ = 0 to 100 do
-                                  generateCustomer () ]
-                            |> List.sortBy (fun c -> c.FullName)
+            let entitiesToInsert =
+                [ for _ = 0 to 100 do
+                      generateCustomer () ]
+                |> List.sortBy (fun c -> c.FullName)
 
-                        let schema =
-                            Schema(tableName)
-                                .AddEntity<Customer>()
-                                .PkMapping(fun c -> c.Country)
-                                .SkMapping(fun c -> c.FullName)
-                                .Schema
+            let schema =
+                TableSchema(tableName)
+                    .AddEntity<Customer>()
+                    .MapPk(fun c -> c.Country)
+                    .MapSk(fun c -> c.FullName)
 
-                        use turbine = new Turbine(client)
+            use turbine = new Turbine(client)
 
-                        do!
-                            turbine
-                                .Put(schema)
-                                .WithPk(fun c -> c.Country.ToString())
-                                .WithSk(fun c -> c.FullName)
-                                .UpsertAsync(entitiesToInsert)
+            do! turbine.Put(schema).UpsertAsync(entitiesToInsert)
 
-                        let! customers =
-                            turbine
-                                .Query<Customer>(schema)
-                                .WithPk("GB")
-                                .WithSk(SortKey.Between("A", "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"))
-                                .ToListAsync()
+            let! customers =
+                turbine
+                    .Query<Customer>(schema)
+                    .WithPk("GB")
+                    .WithSk(SortKey.Between("A", "zzzz"))
+                    .ToListAsync()
 
-                        Assert.Equal<Customer list>(entitiesToInsert, customers |> Seq.toList)
-                    })
-        }
+            Assert.Equal<Customer list>(entitiesToInsert, customers |> Seq.toList)
+        })
 
-    [<Fact>]
-    let ``Can convert special type`` () =
+
+[<Fact>]
+let ``Can insert entity only once`` () =
+    task {
+        do!
+            runTest (fun client ->
+                task {
+                    let entitiesToInsert = generateCustomer ()
+
+                    let schema =
+                        TableSchema(tableName)
+                            .AddEntity<Customer>()
+                            .MapPk(fun c -> c.Country)
+                            .MapSk(fun c -> c.FullName)
+
+                    use turbine = new Turbine(client)
+
+                    do! turbine.Put(schema).UpsertAsync(entitiesToInsert)
+                    let! result = turbine.Put(schema).PutIfNotExistsAsync(entitiesToInsert)
+
+                    Assert.False(result)
+                })
+    }
+
+[<Fact>]
+let ``Can convert special type`` () =
+    runTest (fun client ->
         task {
-            do!
-                runTest (fun client ->
-                    task {
+            let ulidCustomer = generateUlidCustomer ()
 
-                        let ulidCustomer = generateUlidCustomer ()
+            let schema =
+                TableSchema(tableName)
+                    .AddEntity<CustomerWithUlid>()
+                    .MapPk(fun c -> c.Id)
+                    .MapSk(fun c -> c.FullName)
 
-                        let schema =
-                            Schema(tableName)
-                                .AddEntity<CustomerWithUlid>()
-                                .PkMapping(fun c -> c.Id)
-                                .SkMapping(fun c -> c.FullName)
-                                .Schema
+            use turbine = new Turbine(client)
 
-                        use turbine = new Turbine(client)
+            Turbine.FromDynamoConverters[typeof<Ulid>] <- fun (a: AttributeValue) -> Ulid.Parse(a.S) |> box
+            Turbine.ToDynamoConverters[typeof<Ulid>] <- fun (u: obj) -> AttributeValue(S = string u)
 
-                        Turbine.FromDynamoConverters[typeof<Ulid>] <- fun (a: AttributeValue) -> Ulid.Parse(a.S) |> box
-                        Turbine.ToDynamoConverters[typeof<Ulid>] <- fun (u: obj) -> AttributeValue(S = string u)
+            do! turbine.Put(schema).UpsertAsync(ulidCustomer)
 
-                        do!
-                            turbine
-                                .Put<CustomerWithUlid>(schema)
-                                .WithPk(fun c -> ulidCustomer.Id.ToString())
-                                .WithSk(fun c -> c.FullName)
-                                .UpsertAsync(ulidCustomer)
+            let! customer =
+                turbine
+                    .Query<CustomerWithUlid>(schema)
+                    .WithPk(ulidCustomer.Id.ToString())
+                    .WithSk(SortKey.Exactly(ulidCustomer.FullName))
+                    .FirstOrDefaultAsync()
 
-                        let! customer =
-                            turbine
-                                .Query<CustomerWithUlid>(schema)
-                                .WithPk(ulidCustomer.Id.ToString())
-                                .WithSk(SortKey.Exactly(ulidCustomer.FullName))
-                                .FirstOrDefaultAsync()
+            Assert.Equal(customer, ulidCustomer)
+        })
 
-                        Assert.Multiple(
-                            (fun () -> Assert.True(customer.Id = ulidCustomer.Id)),
-                            (fun () -> Assert.True(customer.FullName = ulidCustomer.FullName)),
-                            (fun () -> Assert.True(customer.PhoneNumber = ulidCustomer.PhoneNumber)),
-                            (fun () -> Assert.True(customer.Street = ulidCustomer.Street)),
-                            (fun () -> Assert.True(customer.City = ulidCustomer.City)),
-                            (fun () -> Assert.True(customer.PostCode = ulidCustomer.PostCode)),
-                            (fun () -> Assert.True(customer.Country = ulidCustomer.Country))
-                        )
-                    })
-        }
+[<Fact>]
+let ``Can use attributes`` () =
+    runTest (fun client ->
+        task {
+            let attributeCustomer = generateAttributeCustomer ()
+
+            let schema = TableSchema(tableName).AddEntity<CustomerWithAttributes>()
+
+            use turbine = new Turbine(client)
+
+            do! turbine.Put(schema).UpsertAsync(attributeCustomer)
+
+            let! customer =
+                turbine
+                    .Query<CustomerWithAttributes>(schema)
+                    .WithPk(attributeCustomer.Id.ToString())
+                    .WithSk(SortKey.Exactly(attributeCustomer.FullName))
+                    .FirstOrDefaultAsync()
+
+            Assert.Equal(attributeCustomer, customer)
+        })

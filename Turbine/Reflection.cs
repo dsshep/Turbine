@@ -48,7 +48,7 @@ internal static class Reflection
             return memberExpr.Member.Name;
         }
 
-        throw new TurbineException("Invalid expression: must be a property access expression");
+        throw new TurbineException("Invalid expression: must be a property access expression.");
     }
 
     public static object? ToNetType(Type t, AttributeValue av)

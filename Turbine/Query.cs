@@ -3,15 +3,15 @@ using Amazon.DynamoDBv2.Model;
 
 namespace Turbine;
 
-internal struct PreparedQuery
+internal struct PreparedQuery<T>
 {
-    public Schema Schema { get; }
+    public EntitySchema<T> EntitySchema { get; }
     public string Pk { get; }
     public SortKey Sk { get; }
 
-    public PreparedQuery(Schema schema, string pk, SortKey sk)
+    public PreparedQuery(EntitySchema<T> entitySchema, string pk, SortKey sk)
     {
-        Schema = schema;
+        EntitySchema = entitySchema;
         Pk = pk;
         Sk = sk;
     }
@@ -20,9 +20,9 @@ internal struct PreparedQuery
 internal class Query<T> : IPageableQuery, IQuery<T>
 {
     private readonly AmazonDynamoDBClient client;
-    private readonly PreparedQuery query;
+    private readonly PreparedQuery<T> query;
 
-    public Query(PreparedQuery query, AmazonDynamoDBClient client)
+    public Query(PreparedQuery<T> query, AmazonDynamoDBClient client)
     {
         this.query = query;
         this.client = client;
@@ -30,13 +30,13 @@ internal class Query<T> : IPageableQuery, IQuery<T>
 
     public async Task<QueryResponse> DoQuery(int? itemLimit, Dictionary<string, AttributeValue>? lastEvalKey = null)
     {
-        var (pk, sk, schema) = (query.Pk, query.Sk, query.Schema);
-        var sortKeyExpr = sk.KeyExpr.Replace("<SORT_KEY>", schema.Sk);
+        var (pk, sk, schema) = (query.Pk, query.Sk, query.EntitySchema);
+        var sortKeyExpr = sk.KeyExpr.Replace("<SORT_KEY>", schema.TableSchema.Sk);
 
         var queryRequest = new QueryRequest
         {
-            TableName = schema.TableName,
-            KeyConditionExpression = $"{schema.Pk} = :pkVal AND {sortKeyExpr}"
+            TableName = schema.TableSchema.TableName,
+            KeyConditionExpression = $"{schema.TableSchema.Pk} = :pkVal AND {sortKeyExpr}"
         };
 
         var expressionAttributes = sk.AttributeValue2 is not null
@@ -70,7 +70,7 @@ internal class Query<T> : IPageableQuery, IQuery<T>
         var result = await DoQuery(1);
 
         return result.Items.Count == 1
-            ? EntityBuilder.HydrateEntity<T>(query.Schema, result.Items[0])
+            ? EntityBuilder.HydrateEntity<T>(query.EntitySchema, result.Items[0])
             : default;
     }
 
@@ -84,21 +84,21 @@ internal class Query<T> : IPageableQuery, IQuery<T>
         var result = await DoQuery(limit);
 
         var entities = result.Items
-            .Select(item => EntityBuilder.HydrateEntity<T>(query.Schema, item))
+            .Select(item => EntityBuilder.HydrateEntity<T>(query.EntitySchema, item))
             .ToList();
 
-        return new QueryList<T>(entities, limit, result, this, query.Schema);
+        return new QueryList<T>(entities, limit, result, this, query.EntitySchema);
     }
 }
 
-internal struct PreparedPk
+internal struct PreparedPk<T>
 {
-    public Schema Schema { get; }
+    public EntitySchema<T> EntitySchema { get; }
     public string Pk { get; }
 
-    public PreparedPk(Schema schema, string pk)
+    public PreparedPk(EntitySchema<T> entitySchema, string pk)
     {
-        Schema = schema;
+        EntitySchema = entitySchema;
         Pk = pk;
     }
 }
@@ -106,9 +106,9 @@ internal struct PreparedPk
 internal class QueryBuilderSk<T> : IQueryBuilderSk<T>
 {
     private readonly AmazonDynamoDBClient client;
-    private readonly PreparedPk pk;
+    private readonly PreparedPk<T> pk;
 
-    public QueryBuilderSk(PreparedPk pk, AmazonDynamoDBClient client)
+    public QueryBuilderSk(PreparedPk<T> pk, AmazonDynamoDBClient client)
     {
         this.pk = pk;
         this.client = client;
@@ -117,7 +117,7 @@ internal class QueryBuilderSk<T> : IQueryBuilderSk<T>
     public IQuery<T> WithSk(SortKey sortKey)
     {
         return new Query<T>(
-            new PreparedQuery(pk.Schema, pk.Pk, sortKey),
+            new PreparedQuery<T>(pk.EntitySchema, pk.Pk, sortKey),
             client);
     }
 }
@@ -125,16 +125,16 @@ internal class QueryBuilderSk<T> : IQueryBuilderSk<T>
 internal class QueryBuilderPk<T> : IQueryBuilderPk<T>
 {
     private readonly AmazonDynamoDBClient client;
-    private readonly Schema schema;
+    private readonly EntitySchema<T> entitySchema;
 
-    public QueryBuilderPk(Schema schema, AmazonDynamoDBClient client)
+    public QueryBuilderPk(EntitySchema<T> entitySchema, AmazonDynamoDBClient client)
     {
-        this.schema = schema;
+        this.entitySchema = entitySchema;
         this.client = client;
     }
 
     public IQueryBuilderSk<T> WithPk(string value)
     {
-        return new QueryBuilderSk<T>(new PreparedPk(schema, value), client);
+        return new QueryBuilderSk<T>(new PreparedPk<T>(entitySchema, value), client);
     }
 }
