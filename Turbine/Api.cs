@@ -7,7 +7,7 @@ internal interface IPageableQuery
     Task<QueryResponse> DoQuery(int? itemLimit, Dictionary<string, AttributeValue>? lastEvalKey = null);
 }
 
-public class QueryList<T> : List<T>
+public sealed class QueryList<T> : List<T>
 {
     private readonly EntitySchema<T> entitySchema;
     private readonly int? pageSize;
@@ -65,4 +65,17 @@ public interface IPut<in T>
     Task UpsertAsync(T entity);
     Task UpsertAsync(IEnumerable<T> entities);
     Task<bool> PutIfNotExistsAsync(T entity);
+}
+
+public interface IDelete<in T>
+{
+    Task DeleteAsync(string pk, string sk);
+
+    Task DeleteAsync(string pk, SortKey sk);
+
+    Task DeleteAsync(T item);
+}
+
+public interface ITurbineEntitySchema<in T> : IPut<T>, IDelete<T>
+{
 }

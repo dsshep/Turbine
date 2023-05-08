@@ -19,10 +19,10 @@ internal struct PreparedQuery<T>
 
 internal class Query<T> : IPageableQuery, IQuery<T>
 {
-    private readonly AmazonDynamoDBClient client;
+    private readonly IAmazonDynamoDB client;
     private readonly PreparedQuery<T> query;
 
-    public Query(PreparedQuery<T> query, AmazonDynamoDBClient client)
+    public Query(PreparedQuery<T> query, IAmazonDynamoDB client)
     {
         this.query = query;
         this.client = client;
@@ -105,10 +105,10 @@ internal struct PreparedPk<T>
 
 internal class QueryBuilderSk<T> : IQueryBuilderSk<T>
 {
-    private readonly AmazonDynamoDBClient client;
+    private readonly IAmazonDynamoDB client;
     private readonly PreparedPk<T> pk;
 
-    public QueryBuilderSk(PreparedPk<T> pk, AmazonDynamoDBClient client)
+    public QueryBuilderSk(PreparedPk<T> pk, IAmazonDynamoDB client)
     {
         this.pk = pk;
         this.client = client;
@@ -124,10 +124,10 @@ internal class QueryBuilderSk<T> : IQueryBuilderSk<T>
 
 internal class QueryBuilderPk<T> : IQueryBuilderPk<T>
 {
-    private readonly AmazonDynamoDBClient client;
+    private readonly IAmazonDynamoDB client;
     private readonly EntitySchema<T> entitySchema;
 
-    public QueryBuilderPk(EntitySchema<T> entitySchema, AmazonDynamoDBClient client)
+    public QueryBuilderPk(EntitySchema<T> entitySchema, IAmazonDynamoDB client)
     {
         this.entitySchema = entitySchema;
         this.client = client;

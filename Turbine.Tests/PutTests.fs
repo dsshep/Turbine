@@ -22,7 +22,7 @@ let ``Can insert entity`` () =
 
             use turbine = new Turbine(client)
 
-            do! turbine.Put(schema).UpsertAsync(entityToInsert)
+            do! turbine.WithSchema(schema).UpsertAsync(entityToInsert)
 
             let! customer =
                 turbine
@@ -52,7 +52,7 @@ let ``Can insert batches of entities`` () =
 
             use turbine = new Turbine(client)
 
-            do! turbine.Put(schema).UpsertAsync(entitiesToInsert)
+            do! turbine.WithSchema(schema).UpsertAsync(entitiesToInsert)
 
             let! customers =
                 turbine
@@ -81,8 +81,8 @@ let ``Can insert entity only once`` () =
 
                     use turbine = new Turbine(client)
 
-                    do! turbine.Put(schema).UpsertAsync(entitiesToInsert)
-                    let! result = turbine.Put(schema).PutIfNotExistsAsync(entitiesToInsert)
+                    do! turbine.WithSchema(schema).UpsertAsync(entitiesToInsert)
+                    let! result = turbine.WithSchema(schema).PutIfNotExistsAsync(entitiesToInsert)
 
                     Assert.False(result)
                 })
@@ -105,7 +105,7 @@ let ``Can convert special type`` () =
             Turbine.FromDynamoConverters[typeof<Ulid>] <- fun (a: AttributeValue) -> Ulid.Parse(a.S) |> box
             Turbine.ToDynamoConverters[typeof<Ulid>] <- fun (u: obj) -> AttributeValue(S = string u)
 
-            do! turbine.Put(schema).UpsertAsync(ulidCustomer)
+            do! turbine.WithSchema(schema).UpsertAsync(ulidCustomer)
 
             let! customer =
                 turbine
@@ -127,7 +127,7 @@ let ``Can use attributes`` () =
 
             use turbine = new Turbine(client)
 
-            do! turbine.Put(schema).UpsertAsync(attributeCustomer)
+            do! turbine.WithSchema(schema).UpsertAsync(attributeCustomer)
 
             let! customer =
                 turbine

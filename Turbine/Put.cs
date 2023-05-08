@@ -5,10 +5,10 @@ namespace Turbine;
 
 internal class Put<T> : IPut<T>
 {
-    private readonly AmazonDynamoDBClient client;
+    private readonly IAmazonDynamoDB client;
     private readonly EntitySchema schema;
 
-    public Put(EntitySchema schema, AmazonDynamoDBClient client)
+    public Put(EntitySchema schema, IAmazonDynamoDB client)
     {
         this.schema = schema;
         this.client = client;
