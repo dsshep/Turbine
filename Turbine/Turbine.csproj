@@ -8,6 +8,9 @@
         <Version>0.0.1</Version>
         <PackageTags>dynamodb;aws</PackageTags>
         <Authors>David Shepherd</Authors>
+        <RepositoryUrl>https://github.com/dsshep/Turbine</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageProjectUrl>https://github.com/dsshep/Turbine</PackageProjectUrl>
     </PropertyGroup>
 
     <ItemGroup>
@@ -17,7 +20,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.7.103" />
+        <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.7.103"/>
     </ItemGroup>
 
 </Project>

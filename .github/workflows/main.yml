@@ -32,9 +32,9 @@ jobs:
         if:  github.ref == 'refs/heads/main' && success()
         run: dotnet pack Turbine/Turbine.csproj --configuration Release --no-build --output out
 
-      #- name: Push to NuGet
-      #  if:  github.ref == 'refs/heads/main' && success()
-      #  uses: brandedoutcast/publish-nuget@v2
-      #  with:
-      #    PROJECT_FILE_PATH: Turbine/Turbine.csproj
-      #    NUGET_KEY: ${{ secrets.NUGET_API_KEY }}
+      - name: Push to NuGet
+        if:  github.ref == 'refs/heads/main' && success()
+        uses: brandedoutcast/publish-nuget@v2
+        with:
+          PROJECT_FILE_PATH: Turbine/Turbine.csproj
+          NUGET_KEY: ${{ secrets.NUGET_API_KEY }}

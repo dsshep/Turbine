@@ -8,10 +8,11 @@ A high level dotnet API for performing CRUD operations on Dynamo DB entities sto
 
 New to Single Table Design? Check out these resources: [Yotube](https://www.youtube.com/watch?v=6yqfmXiZTlM&t=18s), [AWS Workshop](https://amazon-dynamodb-labs.workshop.aws/hands-on-labs.html).
 
-(Nuget package not available)
-
 ### Define the schema
 Define the Schema for your table and how it maps to the entities stored within it.
+
+By default, Turbine assumes the Partition Key is called `pk` and the sort key `sk`. These can be overridden. A table 
+must have at least a Partition Key and Sort key to work with Turbine. 
 
 For example, if you have a table:
 
@@ -19,7 +20,7 @@ For example, if you have a table:
 |---------------|----------|---------------|
 | pk            | sk       | ...           |
 
-Where we store an item called customer:
+With an item:
 
 ```csharp
 class Customer 
@@ -44,6 +45,11 @@ var itemSchema = new Schema(tableName)
     .MapPk(fun c -> c.Country)
     .MapSk(fun c -> c.City)
 ```
+
+This tells Turbine that for this schema definition, the Partition Key column is mapped to `Country` and the Sort Key 
+column to `City`. These properties will be used when querying, updating, deleting or putting items. All other public 
+properties will be mapped into attribute columns by default.
+
 ### Querying data
 
 If we wanted to find the first customer in Nottingham:
@@ -98,17 +104,37 @@ var exists = await turbine
 ```
 
 
+## Transactions
+
+Transactions are supported by starting a new transaction scope using `turbine.StartTransact()`:
+
+```csharp
+var entityToInsert = new ...
+
+var success = 
+    await transaction
+        .WithSchema(itemSchema)
+        .Condition(
+            entityToInsert,
+            Condition.AttributeNotExists("pk").And(Condition.AttributeNotExists("sk"))
+        )
+        .Upsert(entityToInsert)
+        .Commit()
+```
+`StartTransact` returns an object that implements `IAsyncDisposable`. On dispose, if `Commit` it will call commit if it 
+has not already been called.
+
+
+
 ## Tasks
 
-v0.1 tasks:
+v1.0 tasks:
 
 - Update
-- Custom hydration
-- Query on GSIs
+- Operations with GSIs
+- JSON
 - Scans
   - Filter expressions
 - Sort entities
 - Nested entities
-- Attribute Projections
-- Map to/from json
 - Return metrics/ rcus
