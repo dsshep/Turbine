@@ -49,8 +49,7 @@ internal static class EntityBuilder
 
         if (constructors.Any(c => c.GetParameters().Length == 0))
         {
-            var instance = Activator.CreateInstance(entityType)!;
-            return (T)HydrateFromProps(entityType, instance, attributes, schema);
+            return (T)HydrateFromProps(entityType, Activator.CreateInstance(entityType)!, attributes, schema);
         }
 
         var instanceOpt =
@@ -107,11 +106,11 @@ internal static class EntityBuilder
                 })
                 .FirstOrDefault();
 
-        var (instanceOrNull, exception) = instanceOpt;
+        var (instance, exception) = instanceOpt;
 
-        if (instanceOrNull != null)
+        if (instance is not null)
         {
-            return instanceOrNull;
+            return instance;
         }
 
         throw new TurbineException($"Could not create instance of '{entityType.Name}'.", exception);

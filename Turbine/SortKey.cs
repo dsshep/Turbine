@@ -2,7 +2,7 @@ using Amazon.DynamoDBv2.Model;
 
 namespace Turbine;
 
-public class SortKey
+public sealed class SortKey
 {
     private SortKey(string keyExpr, AttributeValue attributeValue1, AttributeValue? attributeValue2 = null)
     {

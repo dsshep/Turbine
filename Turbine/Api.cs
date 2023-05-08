@@ -56,7 +56,7 @@ public interface IQueryBuilderPk<T>
     IQueryBuilderSk<T> WithPk(string value);
 }
 
-public interface IPut<T>
+public interface IPut<in T>
 {
     Task UpsertAsync(T entity);
     Task UpsertAsync(IEnumerable<T> entities);

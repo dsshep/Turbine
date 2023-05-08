@@ -3,7 +3,7 @@ using Amazon.DynamoDBv2.Model;
 
 namespace Turbine;
 
-public struct PreparedSk<T>
+internal struct PreparedSk<T>
 {
     public Schema Schema { get; }
     public AmazonDynamoDBClient Client { get; }
@@ -19,7 +19,7 @@ public struct PreparedSk<T>
     }
 }
 
-public class Put<T> : IPut<T>
+internal class Put<T> : IPut<T>
 {
     private readonly PreparedSk<T> preparedSk;
 
@@ -93,14 +93,22 @@ public class Put<T> : IPut<T>
         {
             var shouldSkip = schema.PartitionMap.TryGetValue(entityType, out var p) && p == prop.Name;
 
-            if (!shouldSkip) shouldSkip = schema.SortMap.TryGetValue(entityType, out var s) && s == prop.Name;
+            if (!shouldSkip)
+            {
+                shouldSkip = schema.SortMap.TryGetValue(entityType, out var s) && s == prop.Name;
+            }
 
-            if (shouldSkip) continue;
+            if (shouldSkip)
+            {
+                continue;
+            }
 
             var value = prop.GetValue(item);
 
             if (value is not null)
+            {
                 attributes.Add(new KeyValuePair<string, AttributeValue>(prop.Name, Reflection.ToAttributeValue(value)));
+            }
         }
 
         return attributes.ToDictionary(kv => kv.Key, kv => kv.Value);
@@ -119,7 +127,7 @@ public class Put<T> : IPut<T>
     }
 }
 
-public struct PreparedPk<T>
+internal struct PreparedPk<T>
 {
     public Schema Schema { get; }
     public AmazonDynamoDBClient Client { get; }
@@ -133,7 +141,7 @@ public struct PreparedPk<T>
     }
 }
 
-public class PutBuilderSk<T> : IPutBuilderSk<T>
+internal class PutBuilderSk<T> : IPutBuilderSk<T>
 {
     private readonly PreparedPk<T> preparedPk;
 
@@ -161,7 +169,7 @@ public class PutBuilderSk<T> : IPutBuilderSk<T>
     }
 }
 
-public class PutBuilderPk<T> : IPutBuilderPk<T>
+internal class PutBuilderPk<T> : IPutBuilderPk<T>
 {
     private readonly AmazonDynamoDBClient client;
     private readonly Schema schema;
@@ -178,9 +186,7 @@ public class PutBuilderPk<T> : IPutBuilderPk<T>
             new PreparedPk<T>(
                 schema,
                 client,
-                _ => value
-            )
-        );
+                _ => value));
     }
 
     public IPutBuilderSk<T> WithPk(Func<T, string> pkFunc)

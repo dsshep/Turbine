@@ -83,8 +83,9 @@ internal class Query<T> : IPageableQuery, IQuery<T>
     {
         var result = await DoQuery(limit);
 
-        var entities = new List<T>();
-        foreach (var item in result.Items) entities.Add(EntityBuilder.HydrateEntity<T>(query.Schema, item));
+        var entities = result.Items
+            .Select(item => EntityBuilder.HydrateEntity<T>(query.Schema, item))
+            .ToList();
 
         return new QueryList<T>(entities, limit, result, this, query.Schema);
     }
