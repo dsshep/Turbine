@@ -34,4 +34,4 @@ jobs:
 
       - name: Push to NuGet
         if:  github.ref == 'refs/heads/main' && success()
-        run: dotnet nuget push Turbine/out/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_KEY }}
+        run: dotnet nuget push "./Turbine/out/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_KEY }}
