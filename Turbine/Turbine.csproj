@@ -5,7 +5,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <PackageId>Turbine</PackageId>
-        <Version>0.0.11</Version>
+        <Version>0.0.12</Version>
         <PackageTags>dynamodb;aws</PackageTags>
         <Authors>David Shepherd</Authors>
         <RepositoryUrl>https://github.com/dsshep/Turbine</RepositoryUrl>
@@ -20,7 +20,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.7.103" />
+        <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.7.103"/>
     </ItemGroup>
 
 </Project>
