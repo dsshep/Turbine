@@ -7,9 +7,9 @@ namespace Turbine;
 internal class Put<T> : IPut<T>
 {
     private readonly IAmazonDynamoDB client;
-    private readonly ItemSchema schema;
+    private readonly ItemSchema<T> schema;
 
-    public Put(ItemSchema schema, IAmazonDynamoDB client)
+    public Put(ItemSchema<T> schema, IAmazonDynamoDB client)
     {
         this.schema = schema;
         this.client = client;
@@ -148,7 +148,7 @@ internal class TransactPut<T> : ITransactPut<T>
 
 internal static class AttributeConverter
 {
-    public static Dictionary<string, AttributeValue> Convert<T>(ItemSchema schema, T item)
+    public static Dictionary<string, AttributeValue> Convert<T>(ItemSchema<T> schema, T item)
     {
         ArgumentNullException.ThrowIfNull(item);
 

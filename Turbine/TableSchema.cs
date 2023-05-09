@@ -1,8 +1,21 @@
 namespace Turbine;
 
+public sealed record GsiOptions
+{
+    internal GsiOptions(int num)
+    {
+        PkName = $"GSI{num}pk";
+        SkName = $"GSI{num}sk";
+    }
+
+    public string? PkName { get; set; }
+
+    public string? SkName { get; set; }
+}
+
 public sealed class TableSchema
 {
-    internal readonly Dictionary<Type, ItemSchema> EntitySchemas = new();
+    private readonly List<GsiOptions> globalSecondaryIndexes = new();
 
     public TableSchema(string tableName)
     {
@@ -25,17 +38,15 @@ public sealed class TableSchema
     public ItemSchema<T> AddEntity<T>()
     {
         var schema = new ItemSchema<T>(this, StringComparison.OrdinalIgnoreCase);
-        EntitySchemas.Add(typeof(T), schema);
         return schema;
     }
 
-    internal ItemSchema GetSchemaForType(Type t)
+    public TableSchema AddGsi(Action<GsiOptions>? options)
     {
-        if (EntitySchemas.TryGetValue(t, out var s))
-        {
-            return s;
-        }
+        var o = new GsiOptions(globalSecondaryIndexes.Count + 1);
 
-        throw new TurbineException($@"Cannot find schema for type '{t.Name}'.");
+        options?.Invoke(o);
+
+        return this;
     }
 }

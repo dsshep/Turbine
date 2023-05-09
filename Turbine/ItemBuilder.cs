@@ -51,7 +51,7 @@ internal class ItemBuilderHelper<T>
 
         var attribute = attributes.KeyValueOrDefault(name);
 
-        if (attribute is not null)
+        if (attribute is not null && property.GetSetMethod() is not null)
         {
             property.SetValue(
                 instance,

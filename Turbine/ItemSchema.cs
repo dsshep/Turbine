@@ -4,62 +4,131 @@ using Amazon.DynamoDBv2.DataModel;
 
 namespace Turbine;
 
-public abstract class ItemSchema
+internal class CompoundKeySchema<T> : IKeySchema<T>
 {
-    internal abstract TableSchema TableSchema { get; }
+    private readonly string attributeName;
+    private readonly Func<T, string> builder;
 
-    internal abstract string GetPk(object entity);
+    public CompoundKeySchema(Func<T, string> builder, string attributeName)
+    {
+        this.builder = builder;
+        this.attributeName = attributeName;
+    }
 
-    internal abstract string GetSk(object entity);
+    public string GetKey(T item)
+    {
+        return builder(item);
+    }
 
-    internal abstract PropertyInfo? GetPkProperty();
+    public bool IsNamedProperty(string name)
+    {
+        return name.Equals(attributeName, StringComparison.OrdinalIgnoreCase);
+    }
 
-    internal abstract PropertyInfo? GetSkProperty();
-
-    internal abstract bool IsPkProperty(string name);
-
-    internal abstract bool IsSkProperty(string name);
-
-    internal abstract bool IsJsonItem(out string jsonAttribute);
+    public PropertyInfo? GetProperty()
+    {
+        return null;
+    }
 }
 
-public sealed class ItemSchema<T> : ItemSchema
+internal class PropertyKeySchema<T> : IKeySchema<T>
 {
-    private readonly (PropertyInfo, DynamoDBHashKeyAttribute)? hashKeyAttribute;
-    private readonly PropertyInfo? pkProperty;
+    private readonly PropertyInfo property;
+
+    public PropertyKeySchema(PropertyInfo property)
+    {
+        this.property = property;
+    }
+
+    public string GetKey(T item)
+    {
+        return property.GetValue(item)?.ToString()!;
+    }
+
+    public bool IsNamedProperty(string name)
+    {
+        return property.Name.Equals(name, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public PropertyInfo? GetProperty()
+    {
+        return property;
+    }
+}
+
+internal class AttributeKeySchema<T> : IKeySchema<T>
+{
+    private readonly Attribute attribute;
+    private readonly PropertyInfo property;
+
+    public AttributeKeySchema(PropertyInfo property, Attribute attribute)
+    {
+        this.property = property;
+        this.attribute = attribute;
+    }
+
+    public string GetKey(T item)
+    {
+        return property.GetValue(item)?.ToString()!;
+    }
+
+    public bool IsNamedProperty(string name)
+    {
+        return property.Name.Equals(name, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public PropertyInfo? GetProperty()
+    {
+        return property;
+    }
+}
+
+internal interface IKeySchema<in T>
+{
+    string GetKey(T item);
+
+    bool IsNamedProperty(string name);
+
+    PropertyInfo? GetProperty();
+
+    public static bool TryCreate(
+        string schemaKey,
+        Type attributeType,
+        PropertyInfo[] properties,
+        out IKeySchema<T> keySchema)
+    {
+        keySchema = default!;
+
+        var (property, attribute) = properties
+            .Select(p => (p, p.GetCustomAttribute(attributeType)))
+            .SingleOrDefault(tup => tup.Item2 is not null)!;
+
+        if ((property, attribute) != (default, default))
+        {
+            keySchema = new AttributeKeySchema<T>(property, attribute!);
+            return true;
+        }
+
+        var keyProperty = properties.SingleOrDefault(p =>
+            p.Name.Equals(schemaKey, StringComparison.OrdinalIgnoreCase) && p.PropertyType == typeof(string));
+
+        if (keyProperty is not null)
+        {
+            keySchema = new PropertyKeySchema<T>(keyProperty);
+            return true;
+        }
+
+        return false;
+    }
+}
+
+public sealed class ItemSchema<T>
+{
     private readonly PropertyInfo[] properties;
-    private readonly (PropertyInfo, DynamoDBRangeKeyAttribute)? rangeKeyAttribute;
-
-    private readonly PropertyInfo? skProperty;
     private readonly StringComparison stringComparison;
-
-    private Dictionary<int, Func<T, string>?> gsiPk = new()
-    {
-        { 1, null },
-        { 2, null },
-        { 3, null },
-        { 4, null },
-        { 5, null },
-        { 6, null }
-    };
-
-    private Dictionary<int, Func<T, string>?> gsiSk = new()
-    {
-        { 1, null },
-        { 2, null },
-        { 3, null },
-        { 4, null },
-        { 5, null },
-        { 6, null }
-    };
-
     private string? jsonAttribute;
-
-    private PropertyInfo? pkMappedProperty;
-
-    private Func<T, string>? pkNameBuilder;
-    private PropertyInfo? skMappedProperty;
-    private Func<T, string>? skNameBuilder;
+    private IKeySchema<T>? pkSchema;
+    private IKeySchema<T>? skSchema;
 
     internal ItemSchema(TableSchema tableSchema, StringComparison stringComparison)
     {
@@ -67,42 +136,30 @@ public sealed class ItemSchema<T> : ItemSchema
         this.stringComparison = stringComparison;
         properties = typeof(T).GetProperties();
 
-        hashKeyAttribute = properties
-            .Select(p => (p, p.GetCustomAttribute(typeof(DynamoDBHashKeyAttribute)) as DynamoDBHashKeyAttribute))
-            .SingleOrDefault(tup => tup.Item2 is not null)!;
+        IKeySchema<T>.TryCreate(
+            tableSchema.Pk,
+            typeof(DynamoDBHashKeyAttribute),
+            properties,
+            out pkSchema);
 
-        if (hashKeyAttribute == (default, default))
-        {
-            hashKeyAttribute = null;
-        }
-
-        rangeKeyAttribute = properties
-            .Select(p => (p, p.GetCustomAttribute(typeof(DynamoDBRangeKeyAttribute)) as DynamoDBRangeKeyAttribute))
-            .SingleOrDefault(tup => tup.Item2 is not null)!;
-
-        if (rangeKeyAttribute == (default, default))
-        {
-            rangeKeyAttribute = null;
-        }
-
-        pkProperty = properties.SingleOrDefault(p =>
-            p.Name.Equals(tableSchema.Pk, stringComparison) && p.PropertyType == typeof(string));
-
-        skProperty = properties.SingleOrDefault(p =>
-            p.Name.Equals(tableSchema.Sk, stringComparison) && p.PropertyType == typeof(string));
+        IKeySchema<T>.TryCreate(
+            tableSchema.Sk,
+            typeof(DynamoDBRangeKeyAttribute),
+            properties,
+            out skSchema);
     }
 
-    internal override TableSchema TableSchema { get; }
+    internal TableSchema TableSchema { get; }
 
     public ItemSchema<T> PartitionKey(Func<T, string> pkBuilder)
     {
-        pkNameBuilder = pkBuilder;
+        pkSchema = new CompoundKeySchema<T>(pkBuilder, TableSchema.Sk);
         return this;
     }
 
     public ItemSchema<T> SortKey(Func<T, string> skBuilder)
     {
-        skNameBuilder = skBuilder;
+        skSchema = new CompoundKeySchema<T>(skBuilder, TableSchema.Sk);
         return this;
     }
 
@@ -110,7 +167,9 @@ public sealed class ItemSchema<T> : ItemSchema
     {
         var property = Reflection.GetPropertyName(mapping);
 
-        pkMappedProperty = properties.Single(p => p.Name.Equals(property));
+        var pkMappedProperty = properties.Single(p => p.Name.Equals(property));
+
+        pkSchema = new PropertyKeySchema<T>(pkMappedProperty);
 
         return this;
     }
@@ -119,7 +178,9 @@ public sealed class ItemSchema<T> : ItemSchema
     {
         var property = Reflection.GetPropertyName(mapping);
 
-        skMappedProperty = properties.Single(p => p.Name.Equals(property));
+        var skMappedProperty = properties.Single(p => p.Name.Equals(property));
+
+        skSchema = new PropertyKeySchema<T>(skMappedProperty);
 
         return this;
     }
@@ -130,144 +191,35 @@ public sealed class ItemSchema<T> : ItemSchema
         return this;
     }
 
-    internal override string GetPk(object entity)
+    internal string? GetPk(T entity)
     {
-        return Get(
-            "Partition Key",
-            entity,
-            pkNameBuilder,
-            hashKeyAttribute,
-            pkProperty,
-            pkMappedProperty);
+        return pkSchema?.GetKey(entity);
     }
 
-    internal override string GetSk(object entity)
+    internal string? GetSk(T entity)
     {
-        return Get(
-            "Sort Key",
-            entity,
-            skNameBuilder,
-            rangeKeyAttribute,
-            skProperty,
-            skMappedProperty);
+        return skSchema?.GetKey(entity);
     }
 
-    internal override PropertyInfo? GetPkProperty()
+    internal bool IsPkProperty(string name)
     {
-        if (pkProperty is not null)
-        {
-            return pkProperty;
-        }
-
-        if (hashKeyAttribute.HasValue)
-        {
-            return hashKeyAttribute.Value.Item1;
-        }
-
-        return pkMappedProperty ?? null;
+        return pkSchema?.IsNamedProperty(name) ?? name == TableSchema.Pk;
     }
 
-    internal override PropertyInfo? GetSkProperty()
+    internal bool IsSkProperty(string name)
     {
-        if (skProperty is not null)
-        {
-            return skProperty;
-        }
-
-        if (rangeKeyAttribute.HasValue)
-        {
-            return rangeKeyAttribute.Value.Item1;
-        }
-
-        return skMappedProperty ?? null;
+        return skSchema?.IsNamedProperty(name) ?? name == TableSchema.Sk;
     }
 
-    internal override bool IsPkProperty(string name)
-    {
-        if (pkProperty?.Name.Equals(name, stringComparison) ?? false)
-        {
-            return true;
-        }
-
-        if (hashKeyAttribute.HasValue && hashKeyAttribute.Value.Item1.Name.Equals(name, stringComparison))
-        {
-            return true;
-        }
-
-        return pkMappedProperty?.Name.Equals(name, stringComparison) ?? false;
-    }
-
-    internal override bool IsSkProperty(string name)
-    {
-        if (skProperty?.Name.Equals(name, stringComparison) ?? false)
-        {
-            return true;
-        }
-
-        if (rangeKeyAttribute.HasValue && rangeKeyAttribute.Value.Item1.Name.Equals(name, stringComparison))
-        {
-            return true;
-        }
-
-        return skMappedProperty?.Name.Equals(name, stringComparison) ?? false;
-    }
-
-    internal override bool IsJsonItem(out string jAttribute)
+    internal bool IsJsonItem(out string jAttribute)
     {
         jAttribute = jsonAttribute!;
         return jsonAttribute is not null;
     }
 
-    private static string Get<TAttribute>(
-        string fieldName,
-        object entity,
-        Func<T, string>? builder,
-        (PropertyInfo, TAttribute)? attribute,
-        PropertyInfo? property,
-        PropertyInfo? mappedProperty)
-    {
-        if (entity is not T typedEntity)
-        {
-            throw new TurbineException(
-                $"Cannot convert type '{entity.GetType().Name}' to '{typeof(T).Name}'.");
-        }
-
-        if (builder is not null)
-        {
-            return builder(typedEntity);
-        }
-
-        if (attribute.HasValue)
-        {
-            var (prop, _) = attribute.Value;
-            var value = prop.GetValue(typedEntity)?.ToString();
-
-            if (value is null)
-            {
-                throw new TurbineException($"{fieldName} property cannot be null.");
-            }
-
-            return value;
-        }
-
-        if (property is not null)
-        {
-            return property.GetValue(typedEntity)?.ToString()!;
-        }
-
-        if (mappedProperty is not null)
-        {
-            return mappedProperty.GetValue(typedEntity)?.ToString()!;
-        }
-
-        throw new TurbineException(
-            $"Cannot determine {fieldName} field for '{typeof(T).Name}'.");
-    }
-
     public ItemSchema<T> AddEntity()
     {
         var entitySchema = new ItemSchema<T>(TableSchema, stringComparison);
-        TableSchema.EntitySchemas.Add(typeof(T), entitySchema);
         return entitySchema;
     }
 }
