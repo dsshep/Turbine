@@ -6,7 +6,7 @@ A high level dotnet API for performing CRUD operations on Dynamo DB entities sto
 
 ## Getting Started
 
-New to Single Table Design? Check out these resources: [Yotube](https://www.youtube.com/watch?v=6yqfmXiZTlM&t=18s), [AWS Workshop](https://amazon-dynamodb-labs.workshop.aws/hands-on-labs.html).
+New to Single Table Design? Check out these resources: [Youtube](https://www.youtube.com/watch?v=6yqfmXiZTlM&t=18s), [AWS Workshop](https://amazon-dynamodb-labs.workshop.aws/hands-on-labs.html).
 
 ### Define the schema
 Define the Schema for your table and how it maps to the entities stored within it.
@@ -42,8 +42,8 @@ var tableSchema = new TableSchema(tableName);
 
 var itemSchema = new Schema(tableName)
     .AddEntity<Customer>()
-    .MapPk(fun c -> c.Country)
-    .MapSk(fun c -> c.City)
+    .MapPk(c => c.Country)
+    .MapSk(c => c.City)
 ```
 
 This tells Turbine that for this schema definition, the Partition Key column is mapped to `Country` and the Sort Key 
@@ -124,6 +124,16 @@ var success =
 `StartTransact` returns an object that implements `IAsyncDisposable`. On dispose, if `Commit` it will call commit if it 
 has not already been called.
 
+## JSON
+Items can be mapped to/ from JSON columns:
+
+```csharp
+var itemSchema = new Schema(tableName)
+    .AddEntity<Customer>()
+    .MapPk(c => c.Country)
+    .MapSk(c => c.City)
+    .ToJsonAttribute("json")
+```
 
 
 ## Tasks
@@ -132,7 +142,6 @@ v1.0 tasks:
 
 - Update
 - Operations with GSIs
-- JSON
 - Scans
   - Filter expressions
 - Sort entities

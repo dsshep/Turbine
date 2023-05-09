@@ -9,9 +9,9 @@ internal interface IPageableQuery
 
 public sealed class QueryList<T> : List<T>
 {
-    private readonly ItemSchema<T> itemSchema;
     private readonly int? pageSize;
     private readonly QueryResponse previousResponse;
+    private readonly IItemBuilder<T> propConstructorItemBuilder;
     private readonly IPageableQuery query;
 
     internal QueryList(
@@ -19,14 +19,14 @@ public sealed class QueryList<T> : List<T>
         int? pageSize,
         QueryResponse previousResponse,
         IPageableQuery query,
-        ItemSchema<T> itemSchema)
+        IItemBuilder<T> propConstructorItemBuilder)
     {
         AddRange(items);
         HasNextPage = previousResponse.LastEvaluatedKey != null;
         this.pageSize = pageSize;
         this.previousResponse = previousResponse;
         this.query = query;
-        this.itemSchema = itemSchema;
+        this.propConstructorItemBuilder = propConstructorItemBuilder;
     }
 
     public bool HasNextPage { get; }
@@ -36,10 +36,10 @@ public sealed class QueryList<T> : List<T>
         var response = await query.DoQuery(pageSize, previousResponse.LastEvaluatedKey);
 
         var entities = response.Items
-            .Select(item => EntityBuilder.HydrateEntity<T>(itemSchema, item))
+            .Select(item => propConstructorItemBuilder.HydrateEntity(item))
             .ToArray();
 
-        return new QueryList<T>(entities, pageSize, response, query, itemSchema);
+        return new QueryList<T>(entities, pageSize, response, query, propConstructorItemBuilder);
     }
 }
 

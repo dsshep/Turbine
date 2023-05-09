@@ -19,6 +19,8 @@ public abstract class ItemSchema
     internal abstract bool IsPkProperty(string name);
 
     internal abstract bool IsSkProperty(string name);
+
+    internal abstract bool IsJsonItem(out string jsonAttribute);
 }
 
 public sealed class ItemSchema<T> : ItemSchema
@@ -50,6 +52,8 @@ public sealed class ItemSchema<T> : ItemSchema
         { 5, null },
         { 6, null }
     };
+
+    private string? jsonAttribute;
 
     private PropertyInfo? pkMappedProperty;
 
@@ -117,6 +121,12 @@ public sealed class ItemSchema<T> : ItemSchema
 
         skMappedProperty = properties.Single(p => p.Name.Equals(property));
 
+        return this;
+    }
+
+    public ItemSchema<T> ToJsonAttribute(string jsonAttributeName)
+    {
+        jsonAttribute = jsonAttributeName;
         return this;
     }
 
@@ -200,6 +210,12 @@ public sealed class ItemSchema<T> : ItemSchema
         }
 
         return skMappedProperty?.Name.Equals(name, stringComparison) ?? false;
+    }
+
+    internal override bool IsJsonItem(out string jAttribute)
+    {
+        jAttribute = jsonAttribute!;
+        return jsonAttribute is not null;
     }
 
     private static string Get<TAttribute>(

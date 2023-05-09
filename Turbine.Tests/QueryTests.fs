@@ -32,15 +32,15 @@ let ``Can perform simple query`` () =
                     .FirstOrDefaultAsync()
 
             Assert.Multiple(
-                (fun () -> Assert.True(customer.Id = firstCustomer.Id)),
-                (fun () -> Assert.True(customer.FullName = firstCustomer.FullName)),
-                (fun () -> Assert.True(customer.PhoneNumber = firstCustomer.PhoneNumber)),
-                (fun () -> Assert.True(customer.Street = firstCustomer.Street)),
-                (fun () -> Assert.True(customer.City = firstCustomer.City)),
-                (fun () -> Assert.True(customer.PostCode = firstCustomer.PostCode)),
-                (fun () -> Assert.True(customer.Country = firstCustomer.Country)),
-                (fun () -> Assert.True(customer.DateOfBirth = firstCustomer.DateOfBirth)),
-                (fun () -> Assert.True(customer.HasMadePurchase = firstCustomer.HasMadePurchase))
+                (fun () -> Assert.Equal(customer.Id, firstCustomer.Id)),
+                (fun () -> Assert.Equal(customer.FullName, firstCustomer.FullName)),
+                (fun () -> Assert.Equal(customer.PhoneNumber, firstCustomer.PhoneNumber)),
+                (fun () -> Assert.Equal(customer.Street, firstCustomer.Street)),
+                (fun () -> Assert.Equal(customer.City, firstCustomer.City)),
+                (fun () -> Assert.Equal(customer.PostCode, firstCustomer.PostCode)),
+                (fun () -> Assert.Equal(customer.Country, firstCustomer.Country)),
+                (fun () -> Assert.Equal(customer.DateOfBirth, firstCustomer.DateOfBirth)),
+                (fun () -> Assert.Equal(customer.HasMadePurchase, firstCustomer.HasMadePurchase))
             )
 
         })

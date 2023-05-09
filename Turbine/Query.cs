@@ -20,10 +20,12 @@ internal struct PreparedQuery<T>
 internal class Query<T> : IPageableQuery, IQuery<T>
 {
     private readonly IAmazonDynamoDB client;
+    private readonly IItemBuilder<T> itemBuilder;
     private readonly PreparedQuery<T> query;
 
     public Query(PreparedQuery<T> query, IAmazonDynamoDB client)
     {
+        itemBuilder = new ItemBuilderHelper<T>(query.ItemSchema).GetBuilder();
         this.query = query;
         this.client = client;
     }
@@ -70,7 +72,7 @@ internal class Query<T> : IPageableQuery, IQuery<T>
         var result = await DoQuery(1);
 
         return result.Items.Count == 1
-            ? EntityBuilder.HydrateEntity<T>(query.ItemSchema, result.Items[0])
+            ? itemBuilder.HydrateEntity(result.Items[0])
             : default;
     }
 
@@ -84,10 +86,10 @@ internal class Query<T> : IPageableQuery, IQuery<T>
         var result = await DoQuery(limit);
 
         var entities = result.Items
-            .Select(item => EntityBuilder.HydrateEntity<T>(query.ItemSchema, item))
+            .Select(item => itemBuilder.HydrateEntity(item))
             .ToList();
 
-        return new QueryList<T>(entities, limit, result, this, query.ItemSchema);
+        return new QueryList<T>(entities, limit, result, this, itemBuilder);
     }
 }
 

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 
@@ -156,6 +157,16 @@ internal static class AttributeConverter
             { schema.TableSchema.Pk, new AttributeValue(schema.GetPk(item)) },
             { schema.TableSchema.Sk, new AttributeValue(schema.GetSk(item)) }
         };
+
+        if (schema.IsJsonItem(out var jsonAttribute))
+        {
+            attributes[jsonAttribute] = new AttributeValue
+            {
+                S = JsonSerializer.Serialize(item)
+            };
+
+            return attributes;
+        }
 
         var entityType = typeof(T);
         var props = entityType.GetProperties();
