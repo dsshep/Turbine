@@ -34,4 +34,4 @@ jobs:
 
       - name: Push to NuGet
         if:  github.ref == 'refs/heads/main' && success()
-        run: dotnet nuget push ./out/*.nupkg  -k ${{ secrets.NUGET_KEY }} -s nuget.org
+        run: dotnet nuget push out/*.nupkg  -k ${{ secrets.NUGET_KEY }} -s nuget.org
