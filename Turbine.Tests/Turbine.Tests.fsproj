@@ -18,6 +18,7 @@
         <Compile Include="TransactionTests.fs" />
         <Compile Include="JsonTests.fs" />
         <Compile Include="GsiTests.fs" />
+        <Compile Include="NestedObjectTests.fs" />
         <Compile Include="Program.fs" />
     </ItemGroup>
 

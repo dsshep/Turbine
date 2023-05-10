@@ -63,7 +63,7 @@ internal static class Reflection
 
     private static bool IsDictionary(Type t)
     {
-        var genericDef = t.GetGenericTypeDefinition();
+        var genericDef = t.IsGenericType ? t.GetGenericTypeDefinition() : null;
 
         if (genericDef == typeof(IDictionary<,>)
             || genericDef == typeof(IReadOnlyDictionary<,>)
@@ -159,12 +159,21 @@ internal static class Reflection
             }
         }
 
-        throw new TurbineException(
-            $"Type '{t.Name}' not supported. If this is a custom type, use Turbine.FromDynamoConverters and Turbine.FromDynamoConverters to define the type conversion.");
+        return null;
     }
 
-    public static AttributeValue ToAttributeValue(object value)
+    public static AttributeValue? ToAttributeValue(object value)
     {
+        return InnerToAttributeValue(value, 0);
+    }
+
+    private static AttributeValue? InnerToAttributeValue(object value, int depth)
+    {
+        if (depth == 32)
+        {
+            throw new TurbineException("Maximum depth exceed (32).");
+        }
+
         var t = value.GetType();
 
         if (NetToDynamoLookup.TryGetValue(t, out var converter))
@@ -189,7 +198,7 @@ internal static class Reflection
 
             foreach (DictionaryEntry entry in dictionary)
             {
-                attributeValues[entry.Key.ToString()!] = ToAttributeValue(entry.Value!);
+                attributeValues[entry.Key.ToString()!] = ToAttributeValue(entry.Value!)!;
             }
 
             return new AttributeValue
@@ -210,7 +219,18 @@ internal static class Reflection
             };
         }
 
-        throw new TurbineException(
-            $"Type '{t.Name}' not supported. If this is a custom type, use Turbine.FromDynamoConverters and Turbine.FromDynamoConverters to define the type conversion.");
+        if (t.IsPrimitive || (Nullable.GetUnderlyingType(t)?.IsPrimitive ?? false))
+        {
+            return null;
+        }
+
+        var props = t.GetProperties();
+
+        return new AttributeValue
+        {
+            M = props.ToDictionary(
+                p => p.Name,
+                p => InnerToAttributeValue(p.GetValue(value)!, depth + 1))
+        };
     }
 }

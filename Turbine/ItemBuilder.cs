@@ -112,20 +112,41 @@ internal class PropConstructorItemBuilder<T> : IItemBuilder<T>
 
     public T HydrateEntity(IReadOnlyDictionary<string, AttributeValue> attributes)
     {
-        var constructors = itemHelper.Constructors;
+        return (T)InnerHydrate(typeof(T), itemHelper.Properties, itemHelper.Constructors, attributes, 0);
+    }
+
+    private object InnerHydrate(
+        Type t,
+        PropertyInfo[] props,
+        IEnumerable<ConstructorInfo> ctors,
+        IReadOnlyDictionary<string, AttributeValue> attributes,
+        int depth)
+    {
+        if (depth == 32)
+        {
+            throw new TurbineException("Maximum nested object depth reached (32).");
+        }
 
         var isJsonItem = itemSchema.IsJsonItem(out _);
 
-        if (constructors.Any(c => c.GetParameters().Length == 0) || isJsonItem)
+        if (ctors.Any(c => c.GetParameters().Length == 0) || isJsonItem)
         {
-            return (T)HydrateFromProps(attributes);
+            return HydrateFromProps(t, props, attributes, 0);
         }
 
+        return HydrateFromConstructor(itemHelper.Constructors, attributes, 0);
+    }
+
+    private object HydrateFromConstructor(
+        IEnumerable<ConstructorInfo> constructors,
+        IReadOnlyDictionary<string, AttributeValue> attributes,
+        int depth)
+    {
         var instanceOpt =
             constructors
                 .Select(c => (c, c.GetParameters()))
                 .OrderByDescending(x => x.Item2.Length)
-                .Select<(ConstructorInfo, ParameterInfo[]), (T?, Exception?)>(x =>
+                .Select<(ConstructorInfo, ParameterInfo[]), (object?, Exception?)>(x =>
                 {
                     var ctor = x.Item1;
                     var parameters = x.Item2;
@@ -157,18 +178,31 @@ internal class PropConstructorItemBuilder<T> : IItemBuilder<T>
                                 matchingAttribute = attributes.KeyValueOrDefault(gsiName);
                             }
 
-                            if (matchingAttribute is not null)
+                            if (matchingAttribute is null)
                             {
-                                return Reflection.FromAttributeValue(p.ParameterType, matchingAttribute.Value.Value);
+                                return p.ParameterType.IsValueType ? Activator.CreateInstance(p.ParameterType) : null;
                             }
 
-                            return p.ParameterType.IsValueType ? Activator.CreateInstance(p.ParameterType) : null;
+                            var value = Reflection.FromAttributeValue(
+                                p.ParameterType,
+                                matchingAttribute.Value.Value);
+
+                            if (value is null && matchingAttribute.Value.Value.M is not null)
+                            {
+                                var ctors = p.ParameterType.GetConstructors();
+                                var props = p.ParameterType.GetProperties();
+
+                                value = InnerHydrate(p.ParameterType, props, ctors, matchingAttribute.Value.Value.M,
+                                    depth + 1);
+                            }
+
+                            return value;
                         })
                         .ToArray();
 
                     try
                     {
-                        return ((T)ctor.Invoke(args), null);
+                        return (ctor.Invoke(args), null);
                     }
                     catch (Exception e)
                     {
@@ -187,24 +221,39 @@ internal class PropConstructorItemBuilder<T> : IItemBuilder<T>
         throw new TurbineException($"Could not create instance of '{itemHelper.ItemName}'.", exception);
     }
 
-    private object HydrateFromProps(IReadOnlyDictionary<string, AttributeValue> attributes)
+    private object HydrateFromProps(Type t, PropertyInfo[] properties,
+        IReadOnlyDictionary<string, AttributeValue> attributes, int depth)
     {
-        var props = Array.FindAll(itemHelper.Properties, p => p.GetSetMethod(true) != null);
+        var props = Array.FindAll(properties, p => p.GetSetMethod(true) != null);
 
-        var instance = (T)Activator.CreateInstance(itemHelper.ItemType)!;
+        var instance = Activator.CreateInstance(t)!;
 
         foreach (var prop in props)
         {
             var matchingAttribute = attributes.KeyValueOrDefault(prop.Name);
 
-            if (matchingAttribute is not null)
+            if (matchingAttribute is null)
             {
-                prop.SetValue(instance,
-                    Reflection.FromAttributeValue(prop.PropertyType, matchingAttribute.Value.Value));
+                continue;
             }
+
+            var value = Reflection.FromAttributeValue(prop.PropertyType, matchingAttribute.Value.Value);
+
+            if (value is null && matchingAttribute.Value.Value.M is not null)
+            {
+                var ctors = prop.PropertyType.GetConstructors();
+                var p = prop.PropertyType.GetProperties();
+
+                value = InnerHydrate(prop.PropertyType, p, ctors, matchingAttribute.Value.Value.M, depth + 1);
+            }
+
+            prop.SetValue(instance, value);
         }
 
-        itemHelper.ApplyKeys(instance, attributes);
+        if (depth == 0 && instance is T rootItem)
+        {
+            itemHelper.ApplyKeys(rootItem, attributes);
+        }
 
         return instance;
     }
