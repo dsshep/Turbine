@@ -150,6 +150,13 @@ internal class PropConstructorItemBuilder<T> : IItemBuilder<T>
                                 matchingAttribute = attributes.KeyValueOrDefault(itemSchema.TableSchema.Sk);
                             }
 
+                            var gsiName = itemSchema.GetGsiAttributeName(p.Name);
+
+                            if (matchingAttribute is null && gsiName is not null)
+                            {
+                                matchingAttribute = attributes.KeyValueOrDefault(gsiName);
+                            }
+
                             if (matchingAttribute is not null)
                             {
                                 return Reflection.FromAttributeValue(p.ParameterType, matchingAttribute.Value.Value);

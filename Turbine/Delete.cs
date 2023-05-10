@@ -53,8 +53,8 @@ internal class Delete<T> : IDelete<T>
     {
         ArgumentNullException.ThrowIfNull(item);
 
-        var pk = itemSchema.GetPk(item);
-        var sk = itemSchema.GetSk(item);
+        var pk = itemSchema.GetPk(item)!;
+        var sk = itemSchema.GetSk(item)!;
 
         await DeleteAsync(pk, sk);
     }
@@ -164,13 +164,13 @@ internal class TransactDelete<T> : ITransactDelete<T>
     {
         ArgumentNullException.ThrowIfNull(item);
 
-        return Delete(itemSchema.GetPk(item), itemSchema.GetSk(item));
+        return Delete(itemSchema.GetPk(item)!, itemSchema.GetSk(item)!);
     }
 
     public ITurbineTransact Delete(T item, Condition condition)
     {
         ArgumentNullException.ThrowIfNull(item);
 
-        return Delete(itemSchema.GetPk(item), itemSchema.GetSk(item), condition);
+        return Delete(itemSchema.GetPk(item)!, itemSchema.GetSk(item)!, condition);
     }
 }

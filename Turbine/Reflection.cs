@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Linq.Expressions;
+using System.Reflection;
 using Amazon.DynamoDBv2.Model;
 
 namespace Turbine;
@@ -97,6 +98,15 @@ internal static class Reflection
         }
 
         throw new TurbineException("Invalid expression: must be a property access expression.");
+    }
+
+    public static PropertyInfo GetPropertyInfo<T, TProperty>(Expression<Func<T, TProperty>> expr)
+    {
+        var propertyName = GetPropertyName(expr);
+
+        var property = typeof(T).GetProperties().Single(p => p.Name.Equals(propertyName));
+
+        return property;
     }
 
     public static object? FromAttributeValue(Type t, AttributeValue av)

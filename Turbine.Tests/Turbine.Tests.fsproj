@@ -17,6 +17,7 @@
         <Compile Include="ListMapTests.fs" />
         <Compile Include="TransactionTests.fs" />
         <Compile Include="JsonTests.fs" />
+        <Compile Include="GsiTests.fs" />
         <Compile Include="Program.fs" />
     </ItemGroup>
 

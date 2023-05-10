@@ -6,56 +6,50 @@ A high level dotnet API for performing CRUD operations on Dynamo DB entities sto
 
 ## Getting Started
 
-New to Single Table Design? Check out these resources: [Youtube](https://www.youtube.com/watch?v=6yqfmXiZTlM&t=18s), [AWS Workshop](https://amazon-dynamodb-labs.workshop.aws/hands-on-labs.html).
+Install from [nuget](https://www.nuget.org/packages/Turbine): `dotnet add package Turbine`
+
+New to Single Table Design? Check out these resources: 
+- [Youtube](https://www.youtube.com/watch?v=6yqfmXiZTlM&t=18s), 
+- [AWS Workshop](https://amazon-dynamodb-labs.workshop.aws/hands-on-labs.html), 
+- [The What, Why, and When of Single-Table Design with DynamoDB](https://www.alexdebrie.com/posts/dynamodb-single-table/)
 
 ### Define the schema
 Define the Schema for your table and how it maps to the entities stored within it.
 
-By default, Turbine assumes the Partition Key is called `pk` and the sort key `sk`. These can be overridden. A table 
+By default, Turbine assumes the Partition Key is `pk` and the sort key `sk`. These can be overridden. A table 
 must have at least a Partition Key and Sort key to work with Turbine. 
 
-For example, if you have a table:
+First, the schemas need to be defined. 
 
-| Partition Key | Sort Key | Attributes... |
-|---------------|----------|---------------|
-| pk            | sk       | ...           |
-
-With an item:
-
-```csharp
-class Customer 
-{
-    public Guid Id { get; set; }
-    public string FullName { get; set; }
-    public string PhoneNumber { get; set; }
-    public string Street { get; set; }
-    public string City { get; set; }
-    public string PostCode { get; set; }
-    public string Country { get; set; }
-}
-```
-
-The schema can be defined as:
+A table schema represents the overall structure of a table. If your partition key and sort key are called `pk` and `sk` 
+respectively, this is as simple as:
 
 ```csharp
 var tableSchema = new TableSchema(tableName);
+```
 
+Next, an item schema needs to be defined. This is used to determine what properties map to which of the generic `pk`, `sk`,
+etc. attributes on the DynamoDB table:
+
+```csharp
 var itemSchema = new Schema(tableName)
     .AddEntity<Customer>()
     .MapPk(c => c.Country)
-    .MapSk(c => c.City)
+    .MapSk(c => c.City);
 ```
 
-This tells Turbine that for this schema definition, the Partition Key column is mapped to `Country` and the Sort Key 
+For this item schema, the Partition Key column is mapped to `Country` and the Sort Key 
 column to `City`. These properties will be used when querying, updating, deleting or putting items. All other public 
-properties will be mapped into attribute columns by default.
+properties will be mapped into attribute columns by default. Instantiation through constructors is also possible.
 
 ### Querying data
 
-If we wanted to find the first customer in Nottingham:
+Once the table and item schemas have been defined, an instance of Turbine can be created and DynamoDB queried.
+
+For example, to find the first customer in Nottingham:
 
 ```csharp
-// Create DynamoDB client
+// Create IAmazonDynamoDB client
 var client = ...
 
 using var turbine = new Turbine(client)
@@ -64,7 +58,7 @@ var customer = await turbine
     .Query<Customer>(itemSchema)
     .WithPk("GB")
     .WithSk(SortKey.Exactly("Nottingham"))
-    .FirstOrDefaultAsync()
+    .FirstOrDefaultAsync();
 ```
 
 If we wanted a list of customers in cities beginning with "L":
@@ -76,7 +70,7 @@ var client = ...
 using var turbine = new Turbine(client)
 
 var customer = await turbine
-    .Query<Customer>(itemSchema)
+    .Query(itemSchema)
     .WithPk("GB")
     .WithSk(SortKey.BeginsWith("L"))
     .ToListAsync()
@@ -96,13 +90,12 @@ await turbine
 
 `UpsertAsync` can also operate on an `IEnumerable<T>`, using a batches of 25 regardless of enumerable size.
 
-Set it to only insert the item if it does not already exist:
+Additionally, a convenience method, `PutIfNotExistsAsync`, also exists to only insert the item if it does not already exist:
 ```csharp
 var exists = await turbine
     .WithSchema(itemSchema)
     .PutIfNotExistsAsync(customer);
 ```
-
 
 ## Transactions
 
@@ -119,10 +112,9 @@ var success =
             Condition.AttributeNotExists("pk").And(Condition.AttributeNotExists("sk"))
         )
         .Upsert(entityToInsert)
-        .Commit()
+        .Commit();
 ```
-`StartTransact` returns an object that implements `IAsyncDisposable`. On dispose, if `Commit` it will call commit if it 
-has not already been called.
+`StartTransact` returns an object that implements `IAsyncDisposable`. On dispose, `Commit` will be automatically called if it hasn't already.
 
 ## JSON
 Items can be mapped to/ from JSON columns:
@@ -132,16 +124,44 @@ var itemSchema = new Schema(tableName)
     .AddEntity<Customer>()
     .MapPk(c => c.Country)
     .MapSk(c => c.City)
-    .ToJsonAttribute("json")
+    .ToJsonAttribute("json");
 ```
 
+## GSIs
+Global Secondary Indices (GSIs) can be defined on the table:
+
+```csharp
+var tableSchema = TableSchema(tableName)
+    .AddGsi("gsi1", o =>
+        o.PkName <- "gsi1pk"
+        o.SkName <- "gsi1sk");
+```
+
+Then, columns can be mapped in the `ItemSchema<T>`, e.g.:
+
+```csharp
+var itemSchema = tableSchema
+    .AddEntity<Customer>()
+    .MapPk(c => c.Country)
+    .MapSk(c => c.City)
+    .MapGsi("gsi1", gsiPkMapping: c => c.Id, gsiSkMapping: c => c.PostCode);
+```
+
+When querying, the GSI can be specified using `QueryGsi`:
+
+```csharp
+turbine
+    .QueryGsi(itemSchema, "gsi1")
+    .WithPk("<PK>")
+    .WithSk(SortKey.Exactly("<SK>"))
+    .FirstOrDefaultAsync();
+```
 
 ## Tasks
 
 v1.0 tasks:
 
 - Update
-- Operations with GSIs
 - Scans
   - Filter expressions
 - Sort entities

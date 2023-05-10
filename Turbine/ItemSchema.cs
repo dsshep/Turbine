@@ -24,11 +24,6 @@ internal class CompoundKeySchema<T> : IKeySchema<T>
     {
         return name.Equals(attributeName, StringComparison.OrdinalIgnoreCase);
     }
-
-    public PropertyInfo? GetProperty()
-    {
-        return null;
-    }
 }
 
 internal class PropertyKeySchema<T> : IKeySchema<T>
@@ -48,11 +43,6 @@ internal class PropertyKeySchema<T> : IKeySchema<T>
     public bool IsNamedProperty(string name)
     {
         return property.Name.Equals(name, StringComparison.OrdinalIgnoreCase);
-    }
-
-    public PropertyInfo? GetProperty()
-    {
-        return property;
     }
 }
 
@@ -76,11 +66,6 @@ internal class AttributeKeySchema<T> : IKeySchema<T>
     {
         return property.Name.Equals(name, StringComparison.OrdinalIgnoreCase);
     }
-
-    public PropertyInfo? GetProperty()
-    {
-        return property;
-    }
 }
 
 internal interface IKeySchema<in T>
@@ -88,8 +73,6 @@ internal interface IKeySchema<in T>
     string GetKey(T item);
 
     bool IsNamedProperty(string name);
-
-    PropertyInfo? GetProperty();
 
     public static bool TryCreate(
         string schemaKey,
@@ -101,7 +84,7 @@ internal interface IKeySchema<in T>
 
         var (property, attribute) = properties
             .Select(p => (p, p.GetCustomAttribute(attributeType)))
-            .SingleOrDefault(tup => tup.Item2 is not null)!;
+            .SingleOrDefault(tup => tup.Item2 is not null);
 
         if ((property, attribute) != (default, default))
         {
@@ -124,7 +107,7 @@ internal interface IKeySchema<in T>
 
 public sealed class ItemSchema<T>
 {
-    private readonly PropertyInfo[] properties;
+    private readonly Dictionary<string, (IKeySchema<T>, IKeySchema<T>)> gsis = new();
     private readonly StringComparison stringComparison;
     private string? jsonAttribute;
     private IKeySchema<T>? pkSchema;
@@ -134,7 +117,7 @@ public sealed class ItemSchema<T>
     {
         TableSchema = tableSchema;
         this.stringComparison = stringComparison;
-        properties = typeof(T).GetProperties();
+        var properties = typeof(T).GetProperties();
 
         IKeySchema<T>.TryCreate(
             tableSchema.Pk,
@@ -165,9 +148,7 @@ public sealed class ItemSchema<T>
 
     public ItemSchema<T> MapPk<TProperty>(Expression<Func<T, TProperty>> mapping)
     {
-        var property = Reflection.GetPropertyName(mapping);
-
-        var pkMappedProperty = properties.Single(p => p.Name.Equals(property));
+        var pkMappedProperty = Reflection.GetPropertyInfo(mapping);
 
         pkSchema = new PropertyKeySchema<T>(pkMappedProperty);
 
@@ -176,11 +157,29 @@ public sealed class ItemSchema<T>
 
     public ItemSchema<T> MapSk<TProperty>(Expression<Func<T, TProperty>> mapping)
     {
-        var property = Reflection.GetPropertyName(mapping);
-
-        var skMappedProperty = properties.Single(p => p.Name.Equals(property));
+        var skMappedProperty = Reflection.GetPropertyInfo(mapping);
 
         skSchema = new PropertyKeySchema<T>(skMappedProperty);
+
+        return this;
+    }
+
+    public ItemSchema<T> MapGsi<TProperty1, TProperty2>(
+        string index,
+        Expression<Func<T, TProperty1>> gsiPkMapping,
+        Expression<Func<T, TProperty2>> gsiSkMapping)
+    {
+        if (gsis.Count == 6)
+        {
+            throw new TurbineException("Can only map 6 GSIs.");
+        }
+
+        var propertyName = Reflection.GetPropertyInfo(gsiPkMapping);
+
+        var pkKeySchema = new PropertyKeySchema<T>(propertyName);
+        var skKeySchema = new PropertyKeySchema<T>(Reflection.GetPropertyInfo(gsiSkMapping));
+
+        gsis.Add(index, (pkKeySchema, skKeySchema));
 
         return this;
     }
@@ -209,6 +208,23 @@ public sealed class ItemSchema<T>
     internal bool IsSkProperty(string name)
     {
         return skSchema?.IsNamedProperty(name) ?? name == TableSchema.Sk;
+    }
+
+    internal string? GetGsiAttributeName(string name)
+    {
+        var matchingGsi =
+            gsis.FirstOrDefault(kvp => kvp.Value.Item1.IsNamedProperty(name) || kvp.Value.Item2.IsNamedProperty(name));
+
+        if (matchingGsi.Equals(default(KeyValuePair<string, (IKeySchema<T>, IKeySchema<T>)>)))
+        {
+            return default;
+        }
+
+        var gsi = TableSchema.GlobalSecondaryIndexes[matchingGsi.Key];
+
+        var (pk, _) = matchingGsi.Value;
+
+        return pk.IsNamedProperty(name) ? gsi.PkName : gsi.SkName;
     }
 
     internal bool IsJsonItem(out string jAttribute)

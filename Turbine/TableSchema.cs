@@ -2,21 +2,22 @@ namespace Turbine;
 
 public sealed record GsiOptions
 {
-    internal GsiOptions(int num)
+    internal GsiOptions(string index, int num)
     {
-        PkName = $"GSI{num}pk";
-        SkName = $"GSI{num}sk";
+        Index = index;
+        PkName = $"gsi{num}pk";
+        SkName = $"gsi{num}sk";
     }
 
-    public string? PkName { get; set; }
+    public string Index { get; }
 
-    public string? SkName { get; set; }
+    public string PkName { get; set; }
+
+    public string SkName { get; set; }
 }
 
 public sealed class TableSchema
 {
-    private readonly List<GsiOptions> globalSecondaryIndexes = new();
-
     public TableSchema(string tableName)
     {
         TableName = tableName;
@@ -31,6 +32,8 @@ public sealed class TableSchema
         Sk = sk;
     }
 
+    internal Dictionary<string, GsiOptions> GlobalSecondaryIndexes { get; } = new();
+
     public string TableName { get; }
     public string Pk { get; }
     public string Sk { get; }
@@ -41,11 +44,13 @@ public sealed class TableSchema
         return schema;
     }
 
-    public TableSchema AddGsi(Action<GsiOptions>? options)
+    public TableSchema AddGsi(string indexName, Action<GsiOptions>? options)
     {
-        var o = new GsiOptions(globalSecondaryIndexes.Count + 1);
+        var o = new GsiOptions(indexName, GlobalSecondaryIndexes.Count + 1);
 
         options?.Invoke(o);
+
+        GlobalSecondaryIndexes.Add(o.Index, o);
 
         return this;
     }

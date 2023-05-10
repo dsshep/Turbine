@@ -27,7 +27,23 @@ public sealed class Turbine : IDisposable
     public IQueryBuilderPk<T> Query<T>(ItemSchema<T> itemSchema)
     {
         ArgumentNullException.ThrowIfNull(itemSchema);
-        return new QueryBuilderPk<T>(itemSchema, client);
+        return new QueryBuilderPk<T>(itemSchema, client, null);
+    }
+
+    public IQueryBuilderPk<T> QueryGsi<T>(ItemSchema<T> itemSchema, string indexName)
+    {
+        ArgumentNullException.ThrowIfNull(itemSchema);
+        ArgumentNullException.ThrowIfNull(indexName);
+
+        if (itemSchema.TableSchema.GlobalSecondaryIndexes.ContainsKey(indexName))
+        {
+            return new QueryBuilderPk<T>(itemSchema, client, indexName);
+        }
+
+        var registeredGsis = string.Join(", ", itemSchema.TableSchema.GlobalSecondaryIndexes.Keys);
+
+        throw new TurbineException($"Cannot find GSI index with name '{indexName}'. " +
+                                   $"The following have been registered: [{registeredGsis}]");
     }
 
     public ITurbineEntitySchema<T> WithSchema<T>(ItemSchema<T> itemSchema)
@@ -70,17 +86,19 @@ public sealed class Turbine : IDisposable
 
         public Task DeleteAsync(string pk, string sk)
         {
-            return new Delete<T>(itemSchema, new QueryBuilderPk<T>(itemSchema, client), client).DeleteAsync(pk, sk);
+            return new Delete<T>(itemSchema, new QueryBuilderPk<T>(itemSchema, client, null), client).DeleteAsync(pk,
+                sk);
         }
 
         public Task DeleteAsync(string pk, SortKey sk)
         {
-            return new Delete<T>(itemSchema, new QueryBuilderPk<T>(itemSchema, client), client).DeleteAsync(pk, sk);
+            return new Delete<T>(itemSchema, new QueryBuilderPk<T>(itemSchema, client, null), client).DeleteAsync(pk,
+                sk);
         }
 
         public Task DeleteAsync(T item)
         {
-            return new Delete<T>(itemSchema, new QueryBuilderPk<T>(itemSchema, client), client).DeleteAsync(item);
+            return new Delete<T>(itemSchema, new QueryBuilderPk<T>(itemSchema, client, null), client).DeleteAsync(item);
         }
     }
 

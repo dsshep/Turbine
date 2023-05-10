@@ -5,12 +5,13 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <PackageId>Turbine</PackageId>
-        <Version>0.0.12</Version>
+        <Version>0.0.13</Version>
         <PackageTags>dynamodb;aws</PackageTags>
         <Authors>David Shepherd</Authors>
         <RepositoryUrl>https://github.com/dsshep/Turbine</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageProjectUrl>https://github.com/dsshep/Turbine</PackageProjectUrl>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
     </PropertyGroup>
 
     <ItemGroup>

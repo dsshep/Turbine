@@ -173,6 +173,7 @@ internal static class AttributeConverter
 
         foreach (var prop in props)
         {
+            var gsi = schema.GetGsiAttributeName(prop.Name);
             var shouldSkip = schema.IsPkProperty(prop.Name) || schema.IsSkProperty(prop.Name);
 
             if (shouldSkip)
@@ -182,9 +183,20 @@ internal static class AttributeConverter
 
             var value = prop.GetValue(item);
 
-            if (value is not null)
+            if (value is null)
             {
-                attributes.Add(prop.Name, Reflection.ToAttributeValue(value));
+                continue;
+            }
+
+            var attributeValue = Reflection.ToAttributeValue(value);
+
+            if (gsi is null)
+            {
+                attributes.Add(prop.Name, attributeValue);
+            }
+            else
+            {
+                attributes.Add(gsi, attributeValue);
             }
         }
 
