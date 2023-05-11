@@ -9,27 +9,22 @@ A high level dotnet API for performing CRUD operations on Dynamo DB entities sto
 Install from [nuget](https://www.nuget.org/packages/Turbine): `dotnet add package Turbine`
 
 New to Single Table Design? Check out these resources: 
-- [Youtube](https://www.youtube.com/watch?v=6yqfmXiZTlM&t=18s), 
-- [AWS Workshop](https://amazon-dynamodb-labs.workshop.aws/hands-on-labs.html), 
+- [Youtube](https://www.youtube.com/watch?v=6yqfmXiZTlM&t=18s) 
+- [AWS Workshop](https://amazon-dynamodb-labs.workshop.aws/hands-on-labs.html) 
 - [The What, Why, and When of Single-Table Design with DynamoDB](https://www.alexdebrie.com/posts/dynamodb-single-table/)
 
 ### Define the schema
-Define the Schema for your table and how it maps to the entities stored within it.
+A table schema represents the overall structure of a table. 
 
-By default, Turbine assumes the Partition Key is `pk` and the sort key `sk`. These can be overridden. A table 
-must have at least a Partition Key and Sort key to work with Turbine. 
-
-First, the schemas need to be defined. 
-
-A table schema represents the overall structure of a table. If your partition key and sort key are called `pk` and `sk` 
-respectively, this is as simple as:
+If your partition key and sort key are called `pk` and `sk`
+respectively, this a `TableSchem` can be defined as:
 
 ```csharp
 var tableSchema = new TableSchema(tableName);
 ```
 
-Next, an item schema needs to be defined. This is used to determine what properties map to which of the generic `pk`, `sk`,
-etc. attributes on the DynamoDB table:
+Next, an item schema needs to be defined. This is used to determine what properties map to which of the generic `pk` and 
+`sk` attributes on the DynamoDB table:
 
 ```csharp
 var itemSchema = new Schema(tableName)
@@ -40,7 +35,7 @@ var itemSchema = new Schema(tableName)
 
 For this item schema, the Partition Key column is mapped to `Country` and the Sort Key 
 column to `City`. These properties will be used when querying, updating, deleting or putting items. All other public 
-properties will be mapped into attribute columns by default. Instantiation through constructors is also possible.
+properties will be mapped to attribute columns.
 
 ### Querying data
 
@@ -55,7 +50,7 @@ var client = ...
 using var turbine = new Turbine(client)
 
 var customer = await turbine
-    .Query<Customer>(itemSchema)
+    .Query(itemSchema)
     .WithPk("GB")
     .WithSk(SortKey.Exactly("Nottingham"))
     .FirstOrDefaultAsync();
@@ -88,9 +83,9 @@ await turbine
     .UpsertAsync(customer);
 ```
 
-`UpsertAsync` can also operate on an `IEnumerable<T>`, using a batches of 25 regardless of enumerable size.
+`UpsertAsync` can also operate on an `IEnumerable<T>`, using batches of 25 items.
 
-Additionally, a convenience method, `PutIfNotExistsAsync`, also exists to only insert the item if it does not already exist:
+Additionally, a convenience method, `PutIfNotExistsAsync`, will only insert the item if it has a distinct `pk` and `sk`:
 ```csharp
 var exists = await turbine
     .WithSchema(itemSchema)
@@ -114,7 +109,7 @@ var success =
         .Upsert(entityToInsert)
         .Commit();
 ```
-`StartTransact` returns an object that implements `IAsyncDisposable`. On dispose, `Commit` will be automatically called if it hasn't already.
+`StartTransact` returns an object that implements `IAsyncDisposable`. On dispose, `Commit` will be called if it hasn't already.
 
 ## JSON
 Items can be mapped to/ from JSON columns:
